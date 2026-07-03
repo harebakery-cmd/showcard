@@ -132,6 +132,13 @@
   .origin-item-new{background:#FFF6EC;}
   .origin-item-new .db-item-name{color:var(--primary);font-weight:700;}
   .origin-item-new:hover{background:#FCEBD8;}
+  .origin-item-row{padding:0 6px 0 0;}
+  .origin-item-select{flex:1;min-width:0;text-align:left;padding:10px 8px 10px 14px;background:none;border:none;
+    cursor:pointer;font-size:12px;font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .origin-item-delete{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:none;border:none;
+    color:var(--muted-foreground);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background .15s,color .15s;}
+  .origin-item-delete:hover{background:rgba(192,57,43,.12);color:#c0392b;}
   .price-wrap{position:relative;margin-top:6px;}
   .price-wrap input{padding-right:28px;}
   .price-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted-foreground);}
@@ -343,6 +350,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 const SCREEN_SCALE = 3.15;
 const PRODUCT_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products.json";
 const ORIGIN_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins.json";
+const ORIGIN_DB_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins";
 // Manage-tab settings (fonts/sizes/colors/positions) — shared across every
 // location so "변경 저장" makes the same look apply everywhere.
 const SETTINGS_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
@@ -1180,7 +1188,15 @@ function App() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState(null);
 
-  const [originList, setOriginList] = useState([]);
+  // originEntries keeps each saved origin phrase together with its Firebase
+  // key (origins/{key}) so a single entry can be deleted with the ✕ button
+  // without wiping out the others. originList (derived, deduped) is what
+  // the combobox actually searches/displays.
+  const [originEntries, setOriginEntries] = useState([]); // [{key, value}]
+  const originList = useMemo(() => {
+    const values = originEntries.map(e => e.value).filter(Boolean);
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, "ko"));
+  }, [originEntries]);
   const [originListLoading, setOriginListLoading] = useState(false);
   const [originOpen, setOriginOpen] = useState(false);
   const originSavedRef = useRef(new Set());
@@ -1190,10 +1206,11 @@ function App() {
     fetch(ORIGIN_DB_URL)
       .then(r => r.json())
       .then(data => {
-        const list = Object.values(data || {}).filter(Boolean);
-        const unique = Array.from(new Set(list)).sort((a, b) => a.localeCompare(b, "ko"));
-        setOriginList(unique);
-        originSavedRef.current = new Set(unique);
+        const entries = Object.entries(data || {})
+          .map(([key, value]) => ({ key, value }))
+          .filter(e => e.value);
+        setOriginEntries(entries);
+        originSavedRef.current = new Set(entries.map(e => e.value));
       })
       .catch(() => {})
       .finally(() => setOriginListLoading(false));
@@ -1265,13 +1282,33 @@ function App() {
     const newOnes = entries.filter(v => v && !originSavedRef.current.has(v));
     if (newOnes.length === 0) return;
     newOnes.forEach(v => originSavedRef.current.add(v));
-    setOriginList(prev => Array.from(new Set([...prev, ...newOnes])).sort((a, b) => a.localeCompare(b, "ko")));
     newOnes.forEach(v => {
       fetch(ORIGIN_DB_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(v),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.name) {
+            setOriginEntries(prev => [...prev, { key: data.name, value: v }]);
+          }
+        })
+        .catch(() => {});
+    });
+  }
+
+  // Removes a saved origin phrase from the shared list for everyone. A
+  // phrase can (rarely) exist under more than one Firebase key — e.g. from
+  // before duplicate-prevention was in place — so every matching key is
+  // deleted, not just the first one.
+  function deleteOriginEntry(value) {
+    if (!window.confirm(`"${value}" 표기를 목록에서 삭제할까요?\n팀 전체 저장된 표기에서 삭제됩니다.`)) return;
+    const keysToDelete = originEntries.filter(e => e.value === value).map(e => e.key);
+    setOriginEntries(prev => prev.filter(e => e.value !== value));
+    originSavedRef.current.delete(value);
+    keysToDelete.forEach(key => {
+      fetch(`${ORIGIN_DB_BASE_URL}/${key}.json`, { method: "DELETE" }).catch(() => {});
     });
   }
 
@@ -1467,9 +1504,14 @@ function App() {
                                   <p className="db-empty">아직 저장된 원산지 표기가 없어요.<br/>직접 입력하면 자동으로 목록에 저장됩니다.</p>
                                 )}
                                 {matches.map((o, i) => (
-                                  <button key={o + i} className="db-item" onMouseDown={(e) => { e.preventDefault(); setOrigin(replaceCurrentOriginEntry(origin, o)); setOriginOpen(false); }}>
-                                    <span className="db-item-name">{o}</span>
-                                  </button>
+                                  <div key={o + i} className="db-item origin-item-row">
+                                    <button type="button" className="origin-item-select" onMouseDown={(e) => { e.preventDefault(); setOrigin(replaceCurrentOriginEntry(origin, o)); setOriginOpen(false); }}>
+                                      <span className="db-item-name">{o}</span>
+                                    </button>
+                                    <button type="button" className="origin-item-delete" title="이 표기 삭제" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); deleteOriginEntry(o); }}>
+                                      ✕
+                                    </button>
+                                  </div>
                                 ))}
                               </div>
                             );
