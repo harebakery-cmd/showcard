@@ -436,6 +436,7 @@ const DEFAULT_SETTINGS = {
     season:     { width: 90, height: 70 },
   },
   fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
+  lineHeights: { description: 1.3, name: 1.15, origin: 1.28, price: 1, allergen: 1.4 },
   fontFamilies: { description: null, name: null, origin: null, price: null, allergen: null },
   customFonts: [],
   descriptionColor: "#8a7a6a",
@@ -494,12 +495,12 @@ function originItemDisplay(o) {
   if (o.name || o.country) return (o.name || "") + (o.country ? "(" + o.country + ")" : "");
   return "";
 }
-// 신제품의 원산지 1~3순위를 쇼카드 원산지 입력란 형식(줄바꿈 구분)으로 변환
+// 신제품의 원산지 순위를 쇼카드 원산지 입력란 형식(쉼표 구분)으로 변환
 function originItemsToText(originArr) {
   return (originArr || [])
     .map(o => originItemDisplay(o))
     .filter(Boolean)
-    .join("\n");
+    .join(", ");
 }
 
 /* ═══════════════════ 엑셀 일괄 업로드 (관리 탭) ═══════════════════
@@ -733,6 +734,7 @@ function mergeSettings(loaded) {
     ...loaded,
     sizes: { ...DEFAULT_SETTINGS.sizes, ...(loaded.sizes || {}) },
     fonts: { ...DEFAULT_SETTINGS.fonts, ...(loaded.fonts || {}) },
+    lineHeights: { ...DEFAULT_SETTINGS.lineHeights, ...(loaded.lineHeights || {}) },
     fontFamilies: { ...DEFAULT_SETTINGS.fontFamilies, ...(loaded.fontFamilies || {}) },
     customFonts: loaded.customFonts || [],
     positions: Object.fromEntries(CARD_TYPE_LIST.map(t =>
@@ -793,18 +795,52 @@ function CardFrame({ w, h, sw = 1.2 }) {
 
 /* ═══════════════════════ Card renderers ═══════════════════════ */
 function formatWon(n) { return n.toLocaleString("ko-KR"); }
+function parsePriceNumber(price) {
+  const raw = String(price || "").trim();
+  const compact = raw.match(/^([0-9]+),([0-9])$/);
+  if (compact) return parseInt(compact[1], 10) * 1000 + parseInt(compact[2], 10) * 100;
+  const digits = raw.replace(/[^0-9]/g, "");
+  return digits ? parseInt(digits, 10) : NaN;
+}
+function formatPriceText(price) {
+  const raw = String(price || "").trim();
+  const n = parsePriceNumber(raw);
+  if (isNaN(n)) return raw;
+  if (n > 0 && n % 100 === 0) return `${Math.floor(n / 1000)},${Math.floor((n % 1000) / 100)}`;
+  return formatWon(n);
+}
+function splitTopLevelList(value) {
+  const s = String(value || "");
+  const parts = [];
+  let cur = "";
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+    if ((ch === "," || ch === "\n" || ch === "\r") && depth === 0) {
+      if (cur.trim()) parts.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  return parts.filter(Boolean);
+}
+function formatOriginText(value) {
+  return splitTopLevelList(value).join(", ");
+}
 
 // Renders either a plain price, or — when a discount % is set — a small red
 // discount badge + strikethrough original price + bold discounted price.
-function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, px }) {
-  const digits = String(price || "").replace(/[^0-9]/g, "");
-  const original = digits ? parseInt(digits, 10) : NaN;
+function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, px }) {
+  const original = parsePriceNumber(price);
   const hasDiscount = discountPercent > 0 && !isNaN(original) && original > 0;
 
   if (!hasDiscount) {
     return (
-      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: "center", lineHeight: 1 }}>
-        {price || "—"}
+      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: "center", lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
+        {formatPriceText(price) || "—"}
       </div>
     );
   }
@@ -812,15 +848,15 @@ function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize
   const discounted = Math.round(original * (100 - discountPercent) / 100);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: px(priceSize) * 0.08 }}>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.4, fontWeight: 800, color: "#D64545", lineHeight: 1, whiteSpace: "nowrap" }}>
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.4, fontWeight: 800, color: "#D64545", lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
         {discountPercent}%할인
       </span>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.52, fontWeight: 700, color: "#a89a8d", lineHeight: 1,
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.52, fontWeight: 700, color: "#a89a8d", lineHeight: priceLineHeight,
         textDecoration: "line-through", textDecorationColor: "#D64545", textDecorationThickness: "1.5px", whiteSpace: "nowrap" }}>
-        {formatWon(original)}
+        {formatPriceText(original)}
       </span>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: 1, whiteSpace: "nowrap" }}>
-        {formatWon(discounted)}
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
+        {formatPriceText(discounted)}
       </span>
     </div>
   );
@@ -835,10 +871,12 @@ function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize
 // since a custom design typically already has its own line/border there.
 function CardTextOverlay({ card, settings, px, custom }) {
   const f = settings.fonts;
+  const lh = settings.lineHeights || DEFAULT_SETTINGS.lineHeights;
   const type = card.type;
   const showOrigin = type !== "no-origin";
   const allergens = card.allergens || [];
   const allergenText = allergens.length ? getAllergenLabels(allergens) : "";
+  const originText = showOrigin && card.origin ? formatOriginText(card.origin) : card.message ? card.message : "";
   const descriptionFamily = resolveFontFamily("description", settings);
   const nameFamily = resolveFontFamily("name", settings);
   const originFamily = resolveFontFamily("origin", settings);
@@ -847,22 +885,22 @@ function CardTextOverlay({ card, settings, px, custom }) {
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "visible" }}>
       {card.description && (
-        <div style={{ ...absPosStyle(settings, type, "description"), fontFamily: descriptionFamily, fontSize: px(f.descriptionSize), color: settings.descriptionColor, textAlign: "center", lineHeight: 1.3 }}>
+        <div style={{ ...absPosStyle(settings, type, "description"), fontFamily: descriptionFamily, fontSize: px(f.descriptionSize), color: settings.descriptionColor, textAlign: "center", lineHeight: lh.description }}>
           {card.description}
         </div>
       )}
-      <div style={{ ...absPosStyle(settings, type, "name"), fontFamily: nameFamily, fontSize: px(f.nameSize), fontWeight: 900, color: settings.nameColor, textAlign: "center", lineHeight: 1.15 }}>
+      <div style={{ ...absPosStyle(settings, type, "name"), fontFamily: nameFamily, fontSize: px(f.nameSize), fontWeight: 900, color: settings.nameColor, textAlign: "center", lineHeight: lh.name }}>
         {card.name || "제품명"}
       </div>
-      <div style={{ ...absPosStyle(settings, type, "origin"), fontFamily: originFamily, fontSize: px(f.originSize), color: settings.originColor, textAlign: "center", lineHeight: 1.45 }}>
-        {showOrigin && card.origin ? card.origin : card.message ? card.message : null}
+      <div style={{ ...absPosStyle(settings, type, "origin"), fontFamily: originFamily, fontSize: px(f.originSize), color: settings.originColor, textAlign: "center", lineHeight: lh.origin, wordBreak: "keep-all", overflowWrap: "anywhere" }}>
+        {originText || null}
       </div>
       <div style={{ ...absPosStyle(settings, type, "price"), textAlign: "center" }}>
-        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={settings.priceColor} priceFamily={priceFamily} priceSize={f.priceSize} px={px} />
+        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={settings.priceColor} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} px={px} />
       </div>
       {showOrigin && (
-        <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: settings.allergenColor, textAlign: "center", lineHeight: 1.4,
-          borderTop: custom ? "none" : "0.5px solid #e0d8cc", paddingTop: custom ? 0 : px(f.allergenSize) * 0.5, minHeight: allergenText ? undefined : px(f.allergenSize) * 1.4 }}>
+        <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: settings.allergenColor, textAlign: "center", lineHeight: lh.allergen,
+          borderTop: custom ? "none" : "0.5px solid #e0d8cc", paddingTop: custom ? 0 : px(f.allergenSize) * 0.5, minHeight: allergenText ? undefined : px(f.allergenSize) * lh.allergen }}>
           {allergenText}
         </div>
       )}
@@ -1165,6 +1203,9 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
   function updateFont(key, val) {
     setSettings(s => ({ ...s, fonts: { ...s.fonts, [key]: val } }));
   }
+  function updateLineHeight(key, val) {
+    setSettings(s => ({ ...s, lineHeights: { ...(s.lineHeights || DEFAULT_SETTINGS.lineHeights), [key]: val } }));
+  }
 
   const [bulkStatus, setBulkStatus] = useState("idle"); // idle | parsing | uploading | done | error
   const [bulkResult, setBulkResult] = useState(null);
@@ -1297,30 +1338,35 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
             <div className="field-group">
               <p className="field-group-title">제품 설명</p>
               <NumberInput label="크기" value={settings.fonts.descriptionSize} onChange={(v) => updateFont("descriptionSize", v)} min={4} max={14} step={0.5} unit="pt" />
+              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).description} onChange={(v) => updateLineHeight("description", v)} min={0.8} max={2} step={0.05} unit="배" />
               <FontFieldRow label="폰트" fieldKey="description" settings={settings} setSettings={setSettings} />
               <ColorInput label="글자 색상" value={settings.descriptionColor} onChange={(v) => setSettings(s => ({ ...s, descriptionColor: v }))} />
             </div>
             <div className="field-group">
               <p className="field-group-title">제품명</p>
               <NumberInput label="크기" value={settings.fonts.nameSize} onChange={(v) => updateFont("nameSize", v)} min={8} max={30} step={0.5} unit="pt" />
+              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).name} onChange={(v) => updateLineHeight("name", v)} min={0.8} max={2} step={0.05} unit="배" />
               <FontFieldRow label="폰트" fieldKey="name" settings={settings} setSettings={setSettings} />
               <ColorInput label="글자 색상" value={settings.nameColor} onChange={(v) => setSettings(s => ({ ...s, nameColor: v }))} />
             </div>
             <div className="field-group">
               <p className="field-group-title">원산지</p>
               <NumberInput label="크기" value={settings.fonts.originSize} onChange={(v) => updateFont("originSize", v)} min={4} max={14} step={0.5} unit="pt" />
+              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).origin} onChange={(v) => updateLineHeight("origin", v)} min={0.8} max={2} step={0.05} unit="배" />
               <FontFieldRow label="폰트" fieldKey="origin" settings={settings} setSettings={setSettings} />
               <ColorInput label="글자 색상" value={settings.originColor} onChange={(v) => setSettings(s => ({ ...s, originColor: v }))} />
             </div>
             <div className="field-group">
               <p className="field-group-title">가격</p>
               <NumberInput label="크기" value={settings.fonts.priceSize} onChange={(v) => updateFont("priceSize", v)} min={8} max={30} step={0.5} unit="pt" />
+              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).price} onChange={(v) => updateLineHeight("price", v)} min={0.8} max={2} step={0.05} unit="배" />
               <FontFieldRow label="폰트" fieldKey="price" settings={settings} setSettings={setSettings} />
               <ColorInput label="글자 색상" value={settings.priceColor} onChange={(v) => setSettings(s => ({ ...s, priceColor: v }))} />
             </div>
             <div className="field-group">
               <p className="field-group-title">알레르기 유발물질</p>
               <NumberInput label="크기" value={settings.fonts.allergenSize} onChange={(v) => updateFont("allergenSize", v)} min={4} max={12} step={0.5} unit="pt" />
+              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).allergen} onChange={(v) => updateLineHeight("allergen", v)} min={0.8} max={2} step={0.05} unit="배" />
               <FontFieldRow label="폰트" fieldKey="allergen" settings={settings} setSettings={setSettings} />
               <ColorInput label="글자 색상" value={settings.allergenColor} onChange={(v) => setSettings(s => ({ ...s, allergenColor: v }))} />
             </div>
@@ -1427,7 +1473,9 @@ function App() {
   async function saveCardToLibrary() {
     if (!name.trim()) return;
     setSavingCard(true);
-    const record = { type: cardType, name, description, origin, price, allergens, message,
+    const normalizedOrigin = formatOriginText(origin);
+    const normalizedPrice = formatPriceText(price);
+    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, allergens, message,
       discountPercent: Number(discountPercent) || 0, savedAt: Date.now() };
     try {
       const res = await fetch(SAVED_CARDS_BASE_URL + ".json", {
@@ -1435,7 +1483,7 @@ function App() {
       });
       const data = await res.json();
       setSavedCards(prev => [{ ...record, id: data.name }, ...prev]);
-      saveOriginIfNew(origin);
+      saveOriginIfNew(normalizedOrigin);
     } catch (err) {
       alert("카드 저장에 실패했습니다.");
     } finally {
@@ -1494,39 +1542,24 @@ function App() {
   // inside (), [], or {} are treated as part of that single entry
   // (e.g. "밀가루(밀:미국,캐나다산), 호두(미국산)" → ["밀가루(밀:미국,캐나다산)", "호두(미국산)"]).
   function splitOriginEntries(value) {
-    const s = String(value || "");
-    const parts = [];
-    let cur = "";
-    let depth = 0;
-    for (const ch of s) {
-      if (ch === "(" || ch === "[" || ch === "{") depth++;
-      else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
-      if (ch === "," && depth === 0) {
-        parts.push(cur.trim());
-        cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    if (cur.trim()) parts.push(cur.trim());
-    return parts.filter(Boolean);
+    return splitTopLevelList(value);
   }
 
   // Returns just the entry currently being typed — the text after the last
-  // top-level comma (bracket-aware, same rule as splitOriginEntries). Used
+  // top-level comma/newline (bracket-aware, same rule as splitOriginEntries). Used
   // so the suggestion list searches/matches against only what's being typed
   // right now, not the whole multi-entry string.
   function getCurrentOriginSegment(value) {
     const s = String(value || "");
     let depth = 0;
-    let lastTopCommaIdx = -1;
+    let lastTopSeparatorIdx = -1;
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
       if (ch === "(" || ch === "[" || ch === "{") depth++;
       else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
-      else if (ch === "," && depth === 0) lastTopCommaIdx = i;
+      else if ((ch === "," || ch === "\n" || ch === "\r") && depth === 0) lastTopSeparatorIdx = i;
     }
-    return s.slice(lastTopCommaIdx + 1).trim();
+    return s.slice(lastTopSeparatorIdx + 1).trim();
   }
 
   // Swaps in a selected/typed entry for just the current segment, keeping
@@ -1534,14 +1567,14 @@ function App() {
   function replaceCurrentOriginEntry(value, selected) {
     const s = String(value || "");
     let depth = 0;
-    let lastTopCommaIdx = -1;
+    let lastTopSeparatorIdx = -1;
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
       if (ch === "(" || ch === "[" || ch === "{") depth++;
       else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
-      else if (ch === "," && depth === 0) lastTopCommaIdx = i;
+      else if ((ch === "," || ch === "\n" || ch === "\r") && depth === 0) lastTopSeparatorIdx = i;
     }
-    const prefix = lastTopCommaIdx === -1 ? "" : s.slice(0, lastTopCommaIdx + 1) + " ";
+    const prefix = lastTopSeparatorIdx === -1 ? "" : s.slice(0, lastTopSeparatorIdx + 1).replace(/[\r\n]+$/, ",") + " ";
     return prefix + selected;
   }
 
@@ -1633,8 +1666,10 @@ function App() {
   }
   function addToQueue() {
     if (!name.trim()) return;
-    saveOriginIfNew(origin);
-    setQueue(prev => [...prev, { ...currentCard, id: uid() }]);
+    const normalizedOrigin = formatOriginText(origin);
+    const normalizedPrice = formatPriceText(price);
+    saveOriginIfNew(normalizedOrigin);
+    setQueue(prev => [...prev, { ...currentCard, origin: normalizedOrigin, price: normalizedPrice, id: uid() }]);
     setRightTab("queue");
   }
 
@@ -1814,7 +1849,7 @@ function App() {
                     </button>
                   </div>
                   <div className="price-wrap">
-                    <input value={price} onChange={e => setPrice(e.target.value)} placeholder="예) 3,800" />
+                    <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" />
                     <span className="price-suffix">원</span>
                   </div>
                   {discountOpen && (
@@ -1913,7 +1948,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${card.price}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${formatPriceText(card.price)}`}</p>
                               {card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
@@ -1953,7 +1988,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${card.price}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${formatPriceText(card.price)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <div className="saved-item-actions">
