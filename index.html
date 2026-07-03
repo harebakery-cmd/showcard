@@ -27,6 +27,7 @@
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
   :root{
@@ -245,6 +246,25 @@
   .manage-col-left{min-width:0;}
   .manage-col-right{min-width:0;display:flex;flex-direction:column;gap:14px;position:sticky;top:58px;}
 
+  .manage-bulk-section{}
+  .bulk-upload-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px;}
+  .bulk-upload-desc{font-size:11.5px;color:var(--muted-foreground);line-height:1.6;margin:0 0 12px;}
+  .bulk-upload-actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .bulk-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:5px;font-size:12px;
+    font-weight:800;white-space:nowrap;transition:all .15s;border:1px solid var(--border);}
+  .bulk-btn-secondary{background:#fff;color:#5a4a3a;}
+  .bulk-btn-secondary:hover{border-color:var(--primary);color:var(--primary);}
+  .bulk-btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .bulk-btn-primary:hover:not(:disabled){background:#3a2010;}
+  .bulk-btn-primary:disabled{opacity:.55;cursor:wait;}
+  .bulk-result{margin-top:12px;padding:10px 12px;border-radius:5px;font-size:11.5px;line-height:1.6;}
+  .bulk-result p{display:flex;align-items:center;gap:6px;margin:0;}
+  .bulk-result-ok{background:#F0F8F1;color:#2C6B3F;}
+  .bulk-result-error{background:#FCEDEB;color:#C0392B;}
+  .bulk-result-sub{margin-top:4px !important;color:#5a6b5f;padding-left:18px;}
+  .bulk-result-warnings{margin:6px 0 0;padding-left:30px;color:#8a6a2a;}
+  .bulk-result-warnings li{margin-top:2px;}
+
   .design-grid{display:grid;grid-template-columns:1fr;gap:12px;}
   .design-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;
     display:flex;flex-direction:column;gap:12px;min-width:0;}
@@ -349,6 +369,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 
 const SCREEN_SCALE = 3.15;
 const PRODUCT_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products.json";
+const PRODUCT_DB_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products";
 const ORIGIN_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins.json";
 const ORIGIN_DB_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins";
 // Manage-tab settings (fonts/sizes/colors/positions) — shared across every
@@ -481,6 +502,171 @@ function originItemsToText(originArr) {
     .join("\n");
 }
 
+/* ═══════════════════ 엑셀 일괄 업로드 (관리 탭) ═══════════════════
+   제품명 / 가격 / 원산지 1~6순위 / 알레르기 유발물질을 담은 엑셀 한 장으로
+   products.json(제품명·가격·원산지·알레르기)과 origins.json(원산지 저장
+   표기 목록)에 한 번에 반영한다. 신제품 등록 시스템과 같은 스키마
+   (제품이름/판매금액/원산지[{rank,text}]/알레르기키=Yes|No)를 그대로 씀. */
+
+const BULK_UPLOAD_MAX_ORIGIN_RANKS = 6;
+const BULK_UPLOAD_HEADERS = {
+  name: ["제품명", "제품이름"],
+  price: ["가격", "금액", "판매금액"],
+  allergen: ["알레르기 유발물질", "알레르기유발물질", "알레르기"],
+};
+function bulkOriginHeader(rank) { return `원산지 ${rank}순위`; }
+
+// Builds and downloads the .xlsx template staff should fill in and re-upload.
+function downloadBulkUploadTemplate() {
+  const headers = [
+    "제품명", "가격",
+    ...Array.from({ length: BULK_UPLOAD_MAX_ORIGIN_RANKS }, (_, i) => bulkOriginHeader(i + 1)),
+    "알레르기 유발물질",
+  ];
+  const sampleRows = [
+    ["크로와상", 3500, "프랑스산 버터", "국산 밀가루", "", "", "", "", "우유,밀"],
+    ["호밀빵", 4200, "호밀가루(미국산)", "", "", "", "", "", ""],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+  ws["!cols"] = headers.map((_, i) => ({ wch: i === 0 ? 18 : i === 1 ? 8 : i < 2 + BULK_UPLOAD_MAX_ORIGIN_RANKS ? 20 : 28 }));
+
+  // Reference sheet so staff can copy exact allergen spelling — matching
+  // must be exact, since it maps 1:1 onto the fixed ALLERGENS key list.
+  const allergenSheet = XLSX.utils.aoa_to_sheet([
+    ["사용 가능한 알레르기 유발물질 이름 (정확히 이 표기를 쉼표로 구분해 입력)"],
+    ...ALLERGENS.map(a => [a]),
+  ]);
+  allergenSheet["!cols"] = [{ wch: 40 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "제품 업로드 틀");
+  XLSX.utils.book_append_sheet(wb, allergenSheet, "알레르기 표기 목록");
+  XLSX.writeFile(wb, "쇼카드_제품_일괄업로드_틀.xlsx");
+}
+
+// Reads the uploaded workbook into structured rows, without touching Firebase.
+async function parseBulkUploadFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  if (rows.length < 2) {
+    throw new Error("데이터가 없습니다. 다운로드한 틀의 헤더 행 아래에 제품을 입력해주세요.");
+  }
+  const header = rows[0].map(h => String(h || "").trim());
+  const findCol = (aliases) => {
+    for (const a of aliases) {
+      const idx = header.findIndex(h => h === a);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+  const nameIdx = findCol(BULK_UPLOAD_HEADERS.name);
+  const priceIdx = findCol(BULK_UPLOAD_HEADERS.price);
+  const allergenIdx = findCol(BULK_UPLOAD_HEADERS.allergen);
+  const originIdxs = Array.from({ length: BULK_UPLOAD_MAX_ORIGIN_RANKS }, (_, i) =>
+    header.findIndex(h => h === bulkOriginHeader(i + 1))
+  );
+  if (nameIdx === -1) {
+    throw new Error('헤더에서 "제품명" 열을 찾을 수 없습니다. 다운로드한 틀의 헤더 행을 그대로 사용해주세요.');
+  }
+
+  const parsedRows = [];
+  const skipped = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => String(c || "").trim() === "")) continue; // blank row
+    const name = String(row[nameIdx] || "").trim();
+    if (!name) { skipped.push({ row: i + 1, reason: "제품명이 비어 있습니다" }); continue; }
+
+    const priceRaw = priceIdx !== -1 ? String(row[priceIdx] || "").trim() : "";
+    const priceNum = priceRaw ? Number(priceRaw.replace(/[^0-9.]/g, "")) : NaN;
+
+    const originTexts = originIdxs
+      .map(idx => (idx !== -1 ? String(row[idx] || "").trim() : ""))
+      .filter(Boolean);
+
+    const allergenRaw = allergenIdx !== -1 ? String(row[allergenIdx] || "") : "";
+    const allergenNames = allergenRaw.split(/[,、，\n]/).map(s => s.trim()).filter(Boolean);
+    const matchedAllergens = allergenNames.filter(a => ALLERGENS.includes(a));
+    const unknownAllergens = allergenNames.filter(a => !ALLERGENS.includes(a));
+
+    parsedRows.push({
+      row: i + 1,
+      name,
+      price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null,
+      originTexts,
+      matchedAllergens,
+      unknownAllergens,
+    });
+  }
+  return { parsedRows, skipped };
+}
+
+// Writes parsed rows to Firebase: creates/updates each product (matched to an
+// existing product by exact name) and adds any new origin phrases to the
+// shared origins list. Runs after the person confirms the parsed summary.
+async function applyBulkUpload(parsedRows) {
+  const [productsSnap, originsSnap] = await Promise.all([
+    fetch(PRODUCT_DB_URL).then(r => r.json()).catch(() => ({})),
+    fetch(ORIGIN_DB_URL).then(r => r.json()).catch(() => ({})),
+  ]);
+
+  const nameToKey = new Map();
+  Object.entries(productsSnap || {}).forEach(([key, p]) => {
+    if (p && p["제품이름"]) nameToKey.set(String(p["제품이름"]).trim(), key);
+  });
+  const existingOrigins = new Set(Object.values(originsSnap || {}).filter(Boolean));
+
+  let created = 0, updated = 0, priceSkipped = 0;
+  const allergenWarnings = [];
+  const originsToAdd = new Set();
+
+  for (const row of parsedRows) {
+    const originArr = row.originTexts.map((t, i) => ({ rank: i + 1, text: t }));
+    row.originTexts.forEach(t => { if (!existingOrigins.has(t)) originsToAdd.add(t); });
+    if (row.unknownAllergens.length > 0) {
+      allergenWarnings.push(`${row.row}행 "${row.name}": 인식 안 된 알레르기 → ${row.unknownAllergens.join(", ")}`);
+    }
+    if (row.price == null) priceSkipped++;
+
+    const update = { 제품이름: row.name, 원산지: originArr };
+    if (row.price != null) update.판매금액 = row.price;
+    ALLERGENS.forEach(a => { update[a] = row.matchedAllergens.includes(a) ? "Yes" : "No"; });
+
+    const existingKey = nameToKey.get(row.name);
+    if (existingKey) {
+      await fetch(`${PRODUCT_DB_BASE_URL}/${existingKey}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(update),
+      });
+      updated++;
+    } else {
+      const newId = "bulk_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+      await fetch(`${PRODUCT_DB_BASE_URL}/${newId}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _id: newId, _newProduct: true, 등록상태: "신제품", ...update }),
+      });
+      nameToKey.set(row.name, newId);
+      created++;
+    }
+  }
+
+  await Promise.all(
+    Array.from(originsToAdd).map(v =>
+      fetch(ORIGIN_DB_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v),
+      })
+    )
+  );
+
+  return { created, updated, priceSkipped, allergenWarnings, originsAdded: originsToAdd.size };
+}
+
 // Resolve the CSS font-family string for a given text field ("name" | "origin" | "price" | "allergen")
 // based on the user-uploaded TTF fonts registered in settings.customFonts.
 function resolveFontFamily(fieldKey, settings) {
@@ -578,6 +764,7 @@ const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>
 const IconPackage = (p) => <Icon {...p}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></Icon>;
 const IconEye = (p) => <Icon {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></Icon>;
 const IconUpload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+const IconDownload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
 const IconSliders = (p) => <Icon {...p}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></Icon>;
 const IconImage = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></Icon>;
 const IconX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
@@ -974,9 +1161,48 @@ function FontFieldRow({ label, fieldKey, settings, setSettings }) {
   );
 }
 
-function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving, savedAt, error, loaded }) {
+function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving, savedAt, error, loaded, reloadProducts, reloadOrigins }) {
   function updateFont(key, val) {
     setSettings(s => ({ ...s, fonts: { ...s.fonts, [key]: val } }));
+  }
+
+  const [bulkStatus, setBulkStatus] = useState("idle"); // idle | parsing | uploading | done | error
+  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkError, setBulkError] = useState(null);
+  const bulkFileInputRef = useRef(null);
+
+  async function handleBulkFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setBulkStatus("parsing");
+    setBulkError(null);
+    setBulkResult(null);
+    try {
+      const { parsedRows, skipped } = await parseBulkUploadFile(file);
+      if (parsedRows.length === 0) {
+        throw new Error("업로드할 수 있는 행이 없습니다. 제품명이 채워진 행이 있는지 확인해주세요.");
+      }
+      const confirmMsg =
+        `총 ${parsedRows.length}개 제품을 업로드합니다` +
+        (skipped.length > 0 ? ` (제품명이 비어 건너뛴 행 ${skipped.length}개 있음)` : "") +
+        `.\n제품명·원산지·가격·알레르기가 저장되고, 원산지는 "저장된 표기" 목록에도 추가됩니다.\n계속할까요?`;
+      if (!window.confirm(confirmMsg)) {
+        setBulkStatus("idle");
+        e.target.value = "";
+        return;
+      }
+      setBulkStatus("uploading");
+      const result = await applyBulkUpload(parsedRows);
+      setBulkResult({ ...result, skipped, totalRows: parsedRows.length });
+      setBulkStatus("done");
+      reloadProducts && reloadProducts();
+      reloadOrigins && reloadOrigins();
+    } catch (err) {
+      setBulkError(err.message || "업로드 중 오류가 발생했습니다");
+      setBulkStatus("error");
+    } finally {
+      e.target.value = "";
+    }
   }
 
   return (
@@ -997,6 +1223,54 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
           <IconSave size={13} /> {saving ? "저장 중..." : "변경 저장"}
         </button>
       </div>
+
+      <section className="manage-bulk-section">
+        <div className="manage-section-head">
+          <IconUpload size={15} style={{ color: "#B5762A" }} />
+          <h2>제품 엑셀 일괄 업로드</h2>
+          <span className="sub">— 제품명 · 가격 · 원산지 1~6순위 · 알레르기 유발물질을 엑셀로 한 번에 저장하세요</span>
+        </div>
+        <div className="bulk-upload-card">
+          <p className="bulk-upload-desc">
+            틀을 내려받아 제품명 / 가격 / 원산지 순위(최소 1개, 최대 6개) / 알레르기 유발물질을 채운 뒤 업로드하면,
+            제품 목록("알레르기 자료에서 자동 불러오기")과 "저장된 표기" 원산지 목록에 한 번에 반영됩니다.
+            이미 있는 제품명과 같으면 새로 만들지 않고 해당 제품 정보가 갱신됩니다.
+          </p>
+          <div className="bulk-upload-actions">
+            <button type="button" className="bulk-btn bulk-btn-secondary" onClick={downloadBulkUploadTemplate}>
+              <IconDownload size={13} /> 엑셀 틀 다운로드
+            </button>
+            <button type="button" className="bulk-btn bulk-btn-primary" disabled={bulkStatus === "parsing" || bulkStatus === "uploading"}
+              onClick={() => bulkFileInputRef.current && bulkFileInputRef.current.click()}>
+              {bulkStatus === "parsing" ? (<><IconRefresh size={13} className="spin" /> 파일 읽는 중...</>)
+                : bulkStatus === "uploading" ? (<><IconRefresh size={13} className="spin" /> 업로드 중...</>)
+                : (<><IconUpload size={13} /> 엑셀 업로드</>)}
+            </button>
+            <input ref={bulkFileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleBulkFile} />
+          </div>
+
+          {bulkStatus === "error" && bulkError && (
+            <p className="bulk-result bulk-result-error"><IconAlert size={12} /> {bulkError}</p>
+          )}
+
+          {bulkStatus === "done" && bulkResult && (
+            <div className="bulk-result bulk-result-ok">
+              <p><IconCheck size={12} /> 업로드 완료 — 신규 {bulkResult.created}건 · 갱신 {bulkResult.updated}건 · 원산지 새 표기 {bulkResult.originsAdded}건 저장됨</p>
+              {bulkResult.priceSkipped > 0 && (
+                <p className="bulk-result-sub">가격이 비어 있거나 인식되지 않아 건너뛴 제품 {bulkResult.priceSkipped}건 (기존 가격 유지)</p>
+              )}
+              {bulkResult.skipped && bulkResult.skipped.length > 0 && (
+                <p className="bulk-result-sub">제품명이 없어 건너뛴 행: {bulkResult.skipped.map(s => s.row).join(", ")}</p>
+              )}
+              {bulkResult.allergenWarnings && bulkResult.allergenWarnings.length > 0 && (
+                <ul className="bulk-result-warnings">
+                  {bulkResult.allergenWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="manage-columns">
         <section className="manage-col-left">
@@ -1327,6 +1601,7 @@ function App() {
             category: p["카테고리"] || "",
             allergens: ALLERGENS.filter(a => p[a] === "Yes"),
             origin: p["원산지"] || [],
+            price: p["판매금액"] != null ? String(p["판매금액"]) : "",
           }))
           .sort((a, b) => a.name.localeCompare(b.name, "ko"));
         setProducts(list);
@@ -1349,7 +1624,7 @@ function App() {
   function loadProduct(p) {
     setName(p.name);
     setAllergens(p.allergens);
-    setOrigin(originItemsToText(p.origin)); setPrice(""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
+    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
     setDbOpen(false); setDbSearch(""); setOriginOpen(false);
   }
   function resetForm() {
@@ -1705,7 +1980,8 @@ function App() {
 
         {mainTab === "manage" && (
           <ManageTab settings={settings} setSettings={setSettings} designs={designs} setDesigns={setDesigns}
-            onSave={saveManageChanges} saving={manageSaving} savedAt={manageSavedAt} error={manageError} loaded={manageLoaded} />
+            onSave={saveManageChanges} saving={manageSaving} savedAt={manageSavedAt} error={manageError} loaded={manageLoaded}
+            reloadProducts={loadProducts} reloadOrigins={loadOrigins} />
         )}
       </div>
     </div>
