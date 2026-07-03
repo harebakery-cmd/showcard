@@ -1221,6 +1221,39 @@ function App() {
     return parts.filter(Boolean);
   }
 
+  // Returns just the entry currently being typed — the text after the last
+  // top-level comma (bracket-aware, same rule as splitOriginEntries). Used
+  // so the suggestion list searches/matches against only what's being typed
+  // right now, not the whole multi-entry string.
+  function getCurrentOriginSegment(value) {
+    const s = String(value || "");
+    let depth = 0;
+    let lastTopCommaIdx = -1;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === "(" || ch === "[" || ch === "{") depth++;
+      else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+      else if (ch === "," && depth === 0) lastTopCommaIdx = i;
+    }
+    return s.slice(lastTopCommaIdx + 1).trim();
+  }
+
+  // Swaps in a selected/typed entry for just the current segment, keeping
+  // any already-completed comma-separated entries before it untouched.
+  function replaceCurrentOriginEntry(value, selected) {
+    const s = String(value || "");
+    let depth = 0;
+    let lastTopCommaIdx = -1;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === "(" || ch === "[" || ch === "{") depth++;
+      else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+      else if (ch === "," && depth === 0) lastTopCommaIdx = i;
+    }
+    const prefix = lastTopCommaIdx === -1 ? "" : s.slice(0, lastTopCommaIdx + 1) + " ";
+    return prefix + selected;
+  }
+
   // Adds newly-typed origin entries to the shared list (Firebase) so every
   // location/staff member sees the same saved wording next time — this is
   // how free-typed origin text gradually becomes a unified combobox list.
@@ -1414,7 +1447,8 @@ function App() {
                           {originListLoading ? (
                             <p className="db-status">불러오는 중...</p>
                           ) : (() => {
-                            const q = origin.trim().toLowerCase();
+                            const currentSegment = getCurrentOriginSegment(origin);
+                            const q = currentSegment.toLowerCase();
                             const matches = q ? originList.filter(o => o.toLowerCase().includes(q)) : originList;
                             const entries = splitOriginEntries(origin);
                             const newEntryCount = entries.filter(e => !originList.includes(e)).length;
@@ -1433,7 +1467,7 @@ function App() {
                                   <p className="db-empty">아직 저장된 원산지 표기가 없어요.<br/>직접 입력하면 자동으로 목록에 저장됩니다.</p>
                                 )}
                                 {matches.map((o, i) => (
-                                  <button key={o + i} className="db-item" onMouseDown={(e) => { e.preventDefault(); setOrigin(o); setOriginOpen(false); }}>
+                                  <button key={o + i} className="db-item" onMouseDown={(e) => { e.preventDefault(); setOrigin(replaceCurrentOriginEntry(origin, o)); setOriginOpen(false); }}>
                                     <span className="db-item-name">{o}</span>
                                   </button>
                                 ))}
