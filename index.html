@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HARE,HARE — 쇼카드 출력 시스템</title>
+
+<!-- Freesentation: matches the font family used in the uploaded 25_새이름표.ai reference design -->
+<style>
+  @font-face{font-family:'Freesentation';font-weight:300;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-3Light.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:400;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-4Regular.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:500;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-5Medium.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:600;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-6SemiBold.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:700;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-7Bold.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:800;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-8ExtraBold.woff2') format('woff2');}
+  @font-face{font-family:'Freesentation';font-weight:900;font-style:normal;font-display:swap;
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-9Black.woff2') format('woff2');}
+</style>
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+  :root{
+    --background:#FFFDF8; --foreground:#231916; --card:#FFFFFF; --card-foreground:#231916;
+    --primary:#231916; --primary-foreground:#FFFFFF; --secondary:#F5F0E8; --secondary-foreground:#231916;
+    --muted:#F5F0E8; --muted-foreground:#8a7a6a; --accent:#C9926B; --accent-foreground:#FFFFFF;
+    --destructive:#c0392b; --border:#D9C7B8; --input-background:#FFFDF8; --ring:#C9926B;
+    --brand-orange:#C9926B; --brand-teal:#9ED1D7; --placeholder:#D9C7B8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--background); color:var(--foreground);
+    font-family:'Freesentation',-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit; cursor:pointer;}
+  input,textarea{font-family:inherit;}
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  .app{min-height:100vh; display:flex; flex-direction:column;}
+
+  /* ── Header ───────────────────────── */
+  .header{border-bottom:1px solid var(--border); background:var(--card); padding:12px 24px;
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:16px; flex-wrap:wrap;}
+  .header-left{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+  .logo-row{display:flex; align-items:center; gap:10px;}
+  .logo-badge{width:28px;height:28px;border-radius:6px;background:var(--brand-orange);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:11px;letter-spacing:.15em;flex-shrink:0;}
+  .brand-name{font-size:13px;font-weight:900;letter-spacing:.1em;line-height:1.2;}
+  .brand-sub{font-size:9px;color:var(--muted-foreground);line-height:1.2;}
+  .maintabs{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-left:4px;}
+  .maintab-btn{display:flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;
+    background:#fff;color:#5a4a3a;border:none;transition:all .15s;}
+  .maintab-btn.active{background:var(--primary);color:#fff;}
+  .maintab-btn:not(.active):hover{background:var(--secondary);}
+  .print-btn{display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:4px;font-size:12px;
+    font-weight:800;border:none;background:var(--primary);color:#fff;transition:all .15s;}
+  .print-btn:disabled{background:var(--secondary);color:#C4B49A;cursor:not-allowed;}
+  .print-btn:not(:disabled):hover{background:#3a2010;}
+  .print-btn:not(:disabled):active{transform:scale(.96);}
+
+  /* ── Layout ───────────────────────── */
+  .body{flex:1;display:flex;overflow:hidden;min-height:0;}
+  .aside{width:390px;flex-shrink:0;border-right:1px solid var(--border);background:var(--card);overflow-y:auto;}
+  .aside-inner{padding:20px;display:flex;flex-direction:column;gap:20px;}
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--background);}
+
+  .label-eyebrow{font-size:10px;font-weight:800;color:var(--muted-foreground);text-transform:uppercase;
+    letter-spacing:.14em;margin-bottom:8px;display:block;}
+  .divider{border-top:1px solid var(--border);}
+
+  /* card type chips */
+  .type-grid{display:flex;flex-wrap:wrap;gap:6px;}
+  .type-chip{padding:6px 12px;border-radius:4px;font-size:12px;font-weight:700;border:1px solid var(--border);
+    background:#fff;color:#5a4a3a;transition:all .15s;}
+  .type-chip.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .type-chip:not(.active):hover{border-color:var(--primary);}
+  .type-chip .dim{opacity:.4;font-weight:400;font-size:9px;margin-left:4px;}
+
+  /* DB loader */
+  .db-wrap{position:relative;}
+  .db-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
+    border:1px solid var(--border);border-radius:4px;font-size:12px;color:#5a4a3a;background:var(--input-background);transition:all .15s;}
+  .db-toggle:hover{border-color:var(--primary);}
+  .db-toggle-label{display:flex;align-items:center;gap:8px;}
+  .chev{transition:transform .2s;color:var(--muted-foreground);}
+  .chev.open{transform:rotate(180deg);}
+  .db-panel{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:30;background:#fff;
+    border:1px solid var(--border);border-radius:4px;box-shadow:0 8px 24px rgba(28,16,7,.12);overflow:hidden;}
+  .db-search{width:100%;padding:9px 12px;border:none;border-bottom:1px solid var(--border);font-size:12px;
+    outline:none;background:#FFFDF8;}
+  .db-list{max-height:240px;overflow-y:auto;}
+  .db-item{width:100%;text-align:left;padding:10px 14px;font-size:12px;background:none;border:none;
+    border-bottom:1px solid rgba(212,197,169,.5);display:flex;align-items:center;justify-content:space-between;gap:10px;transition:background .15s;}
+  .db-item:last-child{border-bottom:none;}
+  .db-item:hover{background:var(--secondary);}
+  .db-item-name{font-weight:700;color:var(--foreground);}
+  .db-item-meta{color:var(--muted-foreground);flex-shrink:0;font-size:10px;}
+  .db-item-cat{display:inline-block;font-size:9px;padding:2px 7px;border-radius:20px;background:#F5F0E8;color:#8a7a6a;margin-left:6px;}
+  .db-empty{padding:20px;text-align:center;font-size:12px;color:var(--muted-foreground);}
+  .db-status{padding:10px 14px;font-size:11px;color:var(--muted-foreground);display:flex;align-items:center;gap:6px;}
+  .db-retry{font-size:11px;font-weight:700;color:var(--brand-orange);background:none;border:none;text-decoration:underline;padding:0;}
+
+  /* form fields */
+  .field label{font-size:10px;font-weight:800;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
+  .field input[type=text], .field input:not([type]), .field textarea{
+    margin-top:6px;width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;
+    font-size:12px;color:var(--foreground);background:var(--input-background);transition:border-color .15s;resize:none;}
+  .field input::placeholder, .field textarea::placeholder{color:var(--placeholder);}
+  .field input:focus, .field textarea:focus{outline:none;border-color:var(--primary);}
+  .field-hint{font-size:9.5px;color:var(--placeholder);margin-top:5px;line-height:1.4;}
+
+  .origin-list-toggle{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;
+    font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;}
+  .origin-list-toggle:hover{border-color:var(--primary);color:var(--primary);}
+  .origin-combo{position:relative;}
+  .origin-panel{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:30;background:#fff;
+    border:1px solid var(--border);border-radius:4px;box-shadow:0 8px 24px rgba(28,16,7,.12);overflow:hidden;}
+  .origin-list{max-height:200px;}
+  .origin-item-new{background:#FFF6EC;}
+  .origin-item-new .db-item-name{color:var(--primary);font-weight:700;}
+  .origin-item-new:hover{background:#FCEBD8;}
+  .price-wrap{position:relative;margin-top:6px;}
+  .price-wrap input{padding-right:28px;}
+  .price-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted-foreground);}
+  .discount-toggle{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;
+    font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;}
+  .discount-toggle:hover{border-color:#D64545;color:#D64545;}
+  .discount-toggle.active{background:#FDEEEE;border-color:#D64545;color:#D64545;}
+  .discount-wrap{position:relative;margin-top:6px;}
+  .discount-wrap input{width:100%;padding:8px 44px 8px 12px;border:1px solid #f0c3c3;border-radius:5px;font-size:12px;
+    background:#FFFBFB;color:var(--foreground);}
+  .discount-wrap input:focus{outline:none;border-color:#D64545;}
+  .discount-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10px;color:#D64545;font-weight:700;}
+
+  .allergen-chips{display:flex;flex-wrap:wrap;gap:5px;}
+  .allergen-chip{display:flex;align-items:center;gap:3px;padding:5px 9px;border-radius:4px;font-size:10px;
+    border:1px solid var(--border);background:#fff;color:#5a4a3a;transition:all .15s;}
+  .allergen-chip.active{background:var(--brand-orange);border-color:var(--brand-orange);color:#fff;}
+  .allergen-chip:not(.active):hover{border-color:var(--brand-orange);}
+  .clear-link{font-size:9px;color:var(--muted-foreground);background:none;border:none;padding:0;}
+  .clear-link:hover{color:var(--foreground);}
+  .hint{font-size:9px;color:var(--placeholder);margin-top:6px;}
+
+  .actions-row{display:flex;gap:8px;padding-top:2px;}
+  .btn-add{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:4px;
+    font-size:12px;font-weight:800;border:none;color:#fff;background:var(--brand-orange);transition:all .15s;}
+  .btn-add:disabled{background:#F5F0E8;color:#C4B49A;cursor:not-allowed;}
+  .btn-add:not(:disabled):hover{opacity:.9;}
+  .btn-add:not(:disabled):active{transform:scale(.97);}
+  .btn-reset{padding:11px 13px;border-radius:4px;font-size:12px;font-weight:700;color:#5a4a3a;
+    border:1px solid var(--border);background:#fff;transition:all .15s;}
+  .btn-reset:hover{border-color:var(--primary);color:var(--primary);}
+  .btn-save-card{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:4px;
+    font-size:12px;font-weight:800;color:#2C8B86;border:1px solid #9ED1D7;background:#F0FAF9;transition:all .15s;white-space:nowrap;}
+  .btn-save-card:disabled{background:#F5F0E8;color:#C4B49A;border-color:var(--border);cursor:not-allowed;}
+  .btn-save-card:not(:disabled):hover{background:#E1F3F1;}
+  .btn-save-card:not(:disabled):active{transform:scale(.97);}
+
+  /* right main */
+  .righttabs{border-bottom:1px solid var(--border);background:var(--card);padding:0 24px;display:flex;flex-shrink:0;}
+  .righttab-btn{display:flex;align-items:center;gap:6px;padding:12px 16px;font-size:12px;font-weight:700;
+    background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted-foreground);transition:all .15s;}
+  .righttab-btn.active{border-color:var(--primary);color:var(--primary);}
+  .preview-pane{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:18px;transition:background-color .2s;}
+  .preview-pane.dark{background:#211d18;}
+  .preview-top-row{display:flex;align-items:center;justify-content:center;gap:10px;position:relative;width:100%;max-width:520px;}
+  .preview-caption{font-size:9px;font-weight:800;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
+  .preview-pane.dark .preview-caption{color:#a89684;}
+  .preview-note{font-size:9px;color:var(--placeholder);}
+  .preview-pane.dark .preview-note{color:#6b5f52;}
+  .preview-mode-btn{position:absolute;right:0;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;
+    font-size:10px;font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;white-space:nowrap;}
+  .preview-mode-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .preview-pane.dark .preview-mode-btn{background:#2f2a23;border-color:#463c31;color:#cbbba9;}
+  .preview-pane.dark .preview-mode-btn:hover{border-color:#a08363;color:#f0c896;}
+
+  .queue-pane{flex:1;overflow:auto;padding:24px;}
+  .queue-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;color:var(--muted-foreground);}
+  .queue-empty p{margin:0;}
+  .queue-empty .t1{font-size:14px;font-weight:600;margin-top:10px;}
+  .queue-empty .t2{font-size:12px;opacity:.6;margin-top:4px;}
+  .queue-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .queue-head-info{font-size:9px;font-weight:800;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
+  .queue-clear{font-size:10px;color:var(--muted-foreground);background:none;border:none;}
+  .queue-clear:hover{color:var(--destructive);}
+  .queue-items{display:flex;flex-direction:column;gap:8px;}
+  .queue-item{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--border);
+    border-radius:4px;padding:12px 16px;}
+  .queue-idx{font-size:9px;font-weight:800;color:var(--muted-foreground);width:18px;text-align:right;flex-shrink:0;}
+  .queue-thumb{flex-shrink:0;overflow:hidden;line-height:0;}
+  .queue-info{flex:1;min-width:0;}
+  .queue-name{font-size:12px;font-weight:800;color:var(--foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .queue-sub{font-size:10px;color:var(--muted-foreground);margin-top:2px;}
+  .queue-allergen{font-size:9px;margin-top:2px;color:var(--brand-orange);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .queue-del{flex-shrink:0;background:none;border:none;color:var(--placeholder);}
+  .queue-del:hover{color:var(--destructive);}
+
+  .saved-item{flex-wrap:wrap;}
+  .saved-item-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .saved-load-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:4px;font-size:10.5px;
+    font-weight:800;color:#fff;background:var(--brand-orange);border:none;white-space:nowrap;transition:all .15s;}
+  .saved-load-btn:hover{opacity:.9;}
+
+  /* manage tab */
+  .manage-wrap{flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:22px;}
+  .manage-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .manage-section-head h2{font-size:14px;font-weight:800;margin:0;}
+  .manage-section-head .sub{font-size:11px;color:var(--muted-foreground);}
+
+  .manage-savebar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:#FFF9F0;border:1px solid var(--border);border-radius:6px;padding:10px 14px;box-shadow:0 2px 8px rgba(28,16,7,.05);}
+  .manage-savebar-info{min-width:0;flex:1;}
+  .manage-savebar-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#8a7a6a;line-height:1.4;}
+  .manage-savebar-status.ok{color:#2C8B86;}
+  .manage-savebar-status.error{color:#C0392B;}
+  .manage-save-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:5px;font-size:12px;
+    font-weight:800;background:var(--primary);color:#fff;border:1px solid var(--primary);white-space:nowrap;transition:all .15s;}
+  .manage-save-btn:hover:not(:disabled){background:#3a2010;}
+  .manage-save-btn:disabled{opacity:.55;cursor:wait;}
+  .spin{animation:spin 1s linear infinite;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  .manage-columns{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start;}
+  @media(max-width:980px){.manage-columns{grid-template-columns:1fr;}}
+  .manage-col-left{min-width:0;}
+  .manage-col-right{min-width:0;display:flex;flex-direction:column;gap:14px;position:sticky;top:58px;}
+
+  .design-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+  .design-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;
+    display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .design-card-top{display:flex;gap:12px;align-items:flex-start;min-width:0;}
+  .design-preview-box{flex-shrink:0;line-height:0;background:#fff;border-radius:4px;overflow:hidden;
+    box-shadow:0 1px 4px rgba(28,16,7,.08);align-self:center;}
+  .design-info{flex:1;min-width:0;}
+  .design-title{font-size:12px;font-weight:800;}
+  .design-meta{font-size:10px;color:var(--muted-foreground);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .design-size-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .mini-num{display:flex;align-items:center;gap:5px;}
+  .mini-num span{font-size:10px;color:#5a4a3a;}
+  .mini-num input{width:52px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:10px;
+    background:#FFFDF8;text-align:right;color:var(--foreground);}
+  .mini-num input:focus{outline:none;border-color:var(--primary);}
+  .mini-num .unit{color:var(--muted-foreground);width:12px;font-size:10px;}
+  .design-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center;}
+  .upload-label{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:4px;font-size:10px;
+    font-weight:700;background:var(--primary);color:#fff;border:1px solid var(--primary);transition:all .15s;white-space:nowrap;}
+  .upload-label:hover{background:#3a2010;}
+  .upload-label input{display:none;}
+  .btn-ghost-sm{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:4px;font-size:10px;
+    font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;white-space:nowrap;}
+  .btn-ghost-sm:hover{border-color:var(--primary);color:var(--primary);}
+  .btn-ghost-sm:disabled{opacity:.5;cursor:wait;}
+  .design-badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:20px;
+    background:#EAF7F6;color:#2C8B86;margin-left:5px;vertical-align:middle;}
+  .design-hint{font-size:9px;color:var(--placeholder);margin-top:6px;line-height:1.4;}
+
+  .position-section{border-top:1px dashed var(--border);padding-top:11px;}
+  .position-section-title{font-size:11px;font-weight:800;color:var(--foreground);margin:0 0 9px;}
+  .position-section-title span{font-size:9px;font-weight:500;color:var(--muted-foreground);}
+  .position-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+  .position-control{background:#FFFDF8;border:1px solid var(--border);border-radius:5px;padding:8px;}
+  .position-control-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .position-control-head span{font-size:10px;font-weight:700;color:#5a4a3a;}
+  .pos-reset{font-size:9px;color:var(--primary);background:none;border:none;text-decoration:underline;}
+  .position-control-body{display:flex;align-items:center;gap:8px;}
+  .pos-xy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;}
+  .pos-xy label{display:flex;align-items:center;gap:4px;}
+  .pos-xy span{font-size:9px;color:var(--muted-foreground);width:10px;flex-shrink:0;}
+  .pos-xy input{width:100%;min-width:0;padding:3px 5px;border:1px solid var(--border);border-radius:3px;
+    font-size:10px;background:#fff;color:var(--foreground);}
+  .pos-xy input:focus{outline:none;border-color:var(--primary);}
+  .pos-arrows{display:grid;grid-template-columns:repeat(3,16px);grid-template-rows:repeat(2,16px);gap:2px;flex-shrink:0;}
+  .pos-arrow{display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:3px;
+    background:#fff;color:#5a4a3a;padding:0;}
+  .pos-arrow:hover{border-color:var(--primary);color:var(--primary);background:#FFF6EC;}
+  .pos-arrow.up{grid-column:2;grid-row:1;}
+  .pos-arrow.left{grid-column:1;grid-row:2;}
+  .pos-arrow.down{grid-column:2;grid-row:2;}
+  .pos-arrow.right{grid-column:3;grid-row:2;}
+
+  .settings-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px;
+    display:flex;flex-direction:column;gap:14px;}
+  .field-group{display:flex;flex-direction:column;gap:9px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .field-group:last-child{border-bottom:none;padding-bottom:0;}
+  .field-group-title{font-size:11px;font-weight:800;color:var(--foreground);margin:0;}
+  .font-field-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .font-field-row span{font-size:12px;color:#5a4a3a;flex-shrink:0;}
+  .font-field-controls{display:flex;align-items:center;gap:6px;}
+  .font-field-controls select{font-size:10px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;
+    background:#FFFDF8;color:var(--foreground);max-width:96px;}
+  .font-field-controls select:focus{outline:none;border-color:var(--primary);}
+  .upload-label-sm{display:inline-flex;align-items:center;gap:3px;padding:5px 8px;border-radius:4px;font-size:9px;
+    font-weight:700;background:var(--primary);color:#fff;white-space:nowrap;transition:all .15s;}
+  .upload-label-sm:hover{background:#3a2010;}
+  .upload-label-sm input{display:none;}
+  .num-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .num-row span{font-size:12px;color:#5a4a3a;flex-shrink:0;}
+  .num-row .num-input-grp{display:flex;align-items:center;gap:5px;}
+  .num-row input[type=number]{width:64px;text-align:right;font-size:12px;padding:5px 8px;border:1px solid var(--border);
+    border-radius:4px;background:#FFFDF8;color:var(--foreground);}
+  .num-row input[type=number]:focus{outline:none;border-color:var(--primary);}
+  .num-row .unit{font-size:11px;color:var(--muted-foreground);width:18px;}
+  .color-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .color-row span{font-size:12px;color:#5a4a3a;}
+  .color-row .swatch-grp{display:flex;align-items:center;gap:7px;}
+  .color-row input[type=color]{width:30px;height:26px;border-radius:4px;border:1px solid var(--border);cursor:pointer;padding:0;}
+  .color-row .hex{font-size:11px;color:var(--muted-foreground);font-family:monospace;}
+  .reset-all-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:4px;font-size:11px;
+    font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;align-self:flex-start;}
+  .reset-all-btn:hover{border-color:var(--primary);color:var(--primary);}
+
+  @media print{
+    body > *{display:none !important;}
+    #print-area{display:block !important;}
+    #print-area{position:fixed;inset:0;width:210mm;min-height:297mm;padding:12mm 10mm;box-sizing:border-box;background:#fff;}
+    .print-grid{display:grid;grid-template-columns:1fr 1fr;gap:6mm;align-items:start;}
+    @page{size:A4 portrait;margin:0;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo } = React;
+
+/* ═══════════════════════ Constants ═══════════════════════ */
+
+const SCREEN_SCALE = 3.15;
+const PRODUCT_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products.json";
+const ORIGIN_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins.json";
+// Manage-tab settings (fonts/sizes/colors/positions) — shared across every
+// location so "변경 저장" makes the same look apply everywhere.
+const SETTINGS_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
+// Uploaded card design images, stored ONE NODE PER CARD TYPE (not nested
+// inside settings) so each type gets its own ~10MB Firebase node budget.
+const DESIGNS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_designs";
+// Reusable saved show-card entries (제품명/설명/원산지/가격/알레르기 etc. as a set),
+// listed in the "저장된 카드" tab and loadable straight into the print queue.
+const SAVED_CARDS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
+
+// Matches the allergen field keys used by https://harebakery-cmd.github.io/hare-allergen/
+// so products loaded from that source map 1:1 without translation.
+const ALLERGENS = ["계란","우유","메밀","땅콩","대두","밀","고등어","게","새우","돼지고기","복숭아","토마토","아황산류","호두","닭고기","쇠고기","오징어","조개류","잣","꿀","한천","아몬드"];
+
+const CARD_TYPE_LIST = [
+  { id: "standard",   label: "표준" },
+  { id: "small",      label: "작은사이즈" },
+  { id: "cookie",     label: "쿠키사이즈" },
+  { id: "no-origin",  label: "원산지 없는버전" },
+  { id: "season",     label: "시즌 쇼카드" },
+];
+
+// Fixed (non-configurable) frame look, matching the reference EPS base design —
+// a plain rectangle with a subtle chamfered corner and a small teal accent mark.
+const FRAME_BORDER_COLOR = "#BC9272";
+const FRAME_ACCENT_COLOR = "#9ED1D7";
+
+const POSITION_FIELDS = [
+  { key: "description", label: "제품 설명" },
+  { key: "name",     label: "제품명" },
+  { key: "origin",   label: "원산지 표기" },
+  { key: "price",    label: "가격" },
+  { key: "allergen", label: "하단 표기 (알레르기)" },
+];
+
+// Each field's box width as a % of the card width (used for text wrapping / centering).
+const FIELD_BOX_META = {
+  description: { width: 92 },
+  name:        { width: 94 },
+  origin:      { width: 56 },
+  price:       { width: 42 },
+  allergen:    { width: 94 },
+};
+
+// Default absolute positions (x/y as % of card width/height, anchored at the
+// text block's CENTER). Fully independent per field — no flex/flow layout —
+// so nudging one field never shifts another.
+const POSITION_PRESETS = {
+  standard:   { description: { x: 50, y: 13 }, name: { x: 50, y: 29 }, origin: { x: 34, y: 63 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
+  small:      { description: { x: 50, y: 14 }, name: { x: 50, y: 30 }, origin: { x: 34, y: 64 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
+  cookie:     { description: { x: 50, y: 11 }, name: { x: 50, y: 32 }, origin: { x: 50, y: 66 }, price: { x: 50, y: 79 }, allergen: { x: 50, y: 92 } },
+  "no-origin":{ description: { x: 50, y: 15 }, name: { x: 50, y: 34 }, origin: { x: 34, y: 64 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
+  season:     { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
+};
+
+const DEFAULT_SETTINGS = {
+  sizes: {
+    standard:   { width: 90, height: 60 },
+    small:      { width: 85, height: 48 },
+    cookie:     { width: 60, height: 60 },
+    "no-origin":{ width: 90, height: 55 },
+    season:     { width: 90, height: 70 },
+  },
+  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
+  fontFamilies: { description: null, name: null, origin: null, price: null, allergen: null },
+  customFonts: [],
+  descriptionColor: "#8a7a6a",
+  nameColor: "#231916",
+  priceColor: "#C9926B",
+  originColor: "#595757",
+  allergenColor: "#888070",
+  positions: Object.fromEntries(
+    CARD_TYPE_LIST.map(t => [t.id, JSON.parse(JSON.stringify(POSITION_PRESETS[t.id]))])
+  ),
+};
+
+const DEFAULT_DESIGNS = Object.fromEntries(
+  CARD_TYPE_LIST.map(t => [t.id, { image: null, fileKind: null, fileName: "" }])
+);
+
+// Product name and price are intentionally identical across every type here —
+// this gallery is for comparing card DESIGNS side by side, not sample content.
+const SAMPLE_CARDS = {
+  standard:   { id: "s", type: "standard",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+  small:      { id: "s", type: "small",      name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["밀"],              message: "" },
+  cookie:     { id: "s", type: "cookie",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["호두"],             message: "" },
+  "no-origin":{ id: "s", type: "no-origin",  name: "제품명", description: "제품 설명 예시", origin: "",                    price: "0,0", allergens: [],                   message: "안내 메시지 표기란입니다" },
+  season:     { id: "s", type: "season",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+};
+
+/* ═══════════════════════ Helpers ═══════════════════════ */
+
+function mmToPx(mm, scale = SCREEN_SCALE) { return mm * scale; }
+function ptToPx(pt, scale = SCREEN_SCALE) { return pt * 0.353 * scale; }
+function getPos(settings, type, field) {
+  const fallback = (POSITION_PRESETS[type] && POSITION_PRESETS[type][field]) || { x: 50, y: 50 };
+  return (settings.positions && settings.positions[type] && settings.positions[type][field]) || fallback;
+}
+// Absolute placement style: left/top are % of the card's width/height, anchored
+// at the box's own center — independent of every other field (no flow/flex).
+function absPosStyle(settings, type, field) {
+  const p = getPos(settings, type, field);
+  const meta = FIELD_BOX_META[field] || { width: 90 };
+  return {
+    position: "absolute",
+    left: `${p.x}%`,
+    top: `${p.y}%`,
+    transform: "translate(-50%, -50%)",
+    width: `${meta.width}%`,
+  };
+}
+function getAllergenLabels(ids) {
+  return (ids || []).filter(Boolean).join(" · ") || "해당없음";
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+// 신제품 등록 시스템의 원산지 항목 표시용 (신규 병합 포맷 {text} / 구 포맷 {name,country} 모두 지원)
+function originItemDisplay(o) {
+  if (!o) return "";
+  if (o.text) return o.text;
+  if (o.name || o.country) return (o.name || "") + (o.country ? "(" + o.country + ")" : "");
+  return "";
+}
+// 신제품의 원산지 1~3순위를 쇼카드 원산지 입력란 형식(줄바꿈 구분)으로 변환
+function originItemsToText(originArr) {
+  return (originArr || [])
+    .map(o => originItemDisplay(o))
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Resolve the CSS font-family string for a given text field ("name" | "origin" | "price" | "allergen")
+// based on the user-uploaded TTF fonts registered in settings.customFonts.
+function resolveFontFamily(fieldKey, settings) {
+  const id = settings.fontFamilies && settings.fontFamilies[fieldKey];
+  if (!id) return "inherit";
+  const cf = (settings.customFonts || []).find(f => f.id === id);
+  return cf ? `'${cf.family}'` : "inherit";
+}
+
+// Loads a TTF file the user uploads as a real web font (via the FontFace API),
+// registers it in settings.customFonts, and assigns it to the given field.
+// Also keeps a base64 copy (dataUrl) so the font can be restored after a
+// page reload / on another computer once "변경 저장" persists it to Firebase.
+async function uploadCustomFont(file, fieldKey, setSettings) {
+  try {
+    const buf = await file.arrayBuffer();
+    const family = "CF" + uid();
+    const face = new FontFace(family, buf);
+    await face.load();
+    document.fonts.add(face);
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => rej(new Error("read failed"));
+      r.readAsDataURL(file);
+    });
+    const id = uid();
+    const label = file.name.replace(/\.[^.]+$/, "");
+    setSettings(s => ({
+      ...s,
+      customFonts: [...(s.customFonts || []), { id, label, family, dataUrl }],
+      fontFamilies: { ...s.fontFamilies, [fieldKey]: id },
+    }));
+  } catch (err) {
+    console.error(err);
+    alert("폰트를 불러오지 못했습니다. TTF 파일인지 확인해 주세요.");
+  }
+}
+
+// Re-registers every saved custom font as a real FontFace after settings are
+// loaded from Firebase (a fresh page load has no in-memory fonts otherwise).
+async function hydrateCustomFonts(customFonts) {
+  for (const cf of customFonts || []) {
+    if (!cf.dataUrl || !cf.family) continue;
+    try {
+      const res = await fetch(cf.dataUrl);
+      const buf = await res.arrayBuffer();
+      const face = new FontFace(cf.family, buf);
+      await face.load();
+      document.fonts.add(face);
+    } catch (err) {
+      console.error("font hydrate failed", cf.label, err);
+    }
+  }
+}
+
+// Merges settings loaded from Firebase over DEFAULT_SETTINGS so any field
+// added in a later app update (that an old saved record doesn't have yet)
+// still falls back safely instead of crashing the UI.
+function mergeSettings(loaded) {
+  if (!loaded) return DEFAULT_SETTINGS;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...loaded,
+    sizes: { ...DEFAULT_SETTINGS.sizes, ...(loaded.sizes || {}) },
+    fonts: { ...DEFAULT_SETTINGS.fonts, ...(loaded.fonts || {}) },
+    fontFamilies: { ...DEFAULT_SETTINGS.fontFamilies, ...(loaded.fontFamilies || {}) },
+    customFonts: loaded.customFonts || [],
+    positions: Object.fromEntries(CARD_TYPE_LIST.map(t =>
+      [t.id, { ...POSITION_PRESETS[t.id], ...((loaded.positions || {})[t.id] || {}) }])),
+  };
+}
+
+/* ═══════════════════════ Icons (inline, no deps) ═══════════════════════ */
+
+function Icon({ children, size = 14, ...rest }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...rest}>
+      {children}
+    </svg>
+  );
+}
+const IconPrinter = (p) => <Icon {...p}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></Icon>;
+const IconSettings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+const IconPlus = (p) => <Icon {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const IconTrash = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+const IconRefresh = (p) => <Icon {...p}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Icon>;
+const IconChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+const IconChevronUp = (p) => <Icon {...p}><polyline points="18 15 12 9 6 15"/></Icon>;
+const IconChevronLeft = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
+const IconChevronRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
+const IconPercent = (p) => <Icon {...p}><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></Icon>;
+const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
+const IconPackage = (p) => <Icon {...p}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></Icon>;
+const IconEye = (p) => <Icon {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></Icon>;
+const IconUpload = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+const IconSliders = (p) => <Icon {...p}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></Icon>;
+const IconImage = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></Icon>;
+const IconX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const IconSearch = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>;
+const IconAlert = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
+const IconSun = (p) => <Icon {...p}><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></Icon>;
+const IconMoon = (p) => <Icon {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Icon>;
+const IconSave = (p) => <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
+const IconBookmark = (p) => <Icon {...p}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></Icon>;
+
+// Simple rectangle frame with a subtle chamfered corner and a small accent mark
+// at the top-left / bottom-right corners — matches the reference EPS base design.
+// Always a rectangle (no octagon-style deep corner cutting).
+function CardFrame({ w, h, sw = 1.2 }) {
+  const chamfer = Math.max(4, Math.min(w, h) * 0.045);
+  const ca = chamfer * 0.62;
+  const pts = `${chamfer},0 ${w - chamfer},0 ${w},${chamfer} ${w},${h - chamfer} ${w - chamfer},${h} ${chamfer},${h} 0,${h - chamfer} 0,${chamfer}`;
+  return (
+    <svg width={w} height={h} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", overflow: "visible" }}>
+      <polygon points={pts} fill="none" stroke={FRAME_BORDER_COLOR} strokeWidth={sw} />
+      <line x1={chamfer - ca * 0.6} y1={ca * 0.6} x2={ca * 0.6} y2={chamfer - ca * 0.6} stroke={FRAME_ACCENT_COLOR} strokeWidth={sw * 1.7} strokeLinecap="round" />
+      <line x1={w - chamfer + ca * 0.6} y1={h - ca * 0.6} x2={w - ca * 0.6} y2={h - chamfer + ca * 0.6} stroke={FRAME_ACCENT_COLOR} strokeWidth={sw * 1.7} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* ═══════════════════════ Card renderers ═══════════════════════ */
+function formatWon(n) { return n.toLocaleString("ko-KR"); }
+
+// Renders either a plain price, or — when a discount % is set — a small red
+// discount badge + strikethrough original price + bold discounted price.
+function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, px }) {
+  const digits = String(price || "").replace(/[^0-9]/g, "");
+  const original = digits ? parseInt(digits, 10) : NaN;
+  const hasDiscount = discountPercent > 0 && !isNaN(original) && original > 0;
+
+  if (!hasDiscount) {
+    return (
+      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: "center", lineHeight: 1 }}>
+        {price || "—"}
+      </div>
+    );
+  }
+
+  const discounted = Math.round(original * (100 - discountPercent) / 100);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: px(priceSize) * 0.08 }}>
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.4, fontWeight: 800, color: "#D64545", lineHeight: 1, whiteSpace: "nowrap" }}>
+        {discountPercent}%할인
+      </span>
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.52, fontWeight: 700, color: "#a89a8d", lineHeight: 1,
+        textDecoration: "line-through", textDecorationColor: "#D64545", textDecorationThickness: "1.5px", whiteSpace: "nowrap" }}>
+        {formatWon(original)}
+      </span>
+      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: 1, whiteSpace: "nowrap" }}>
+        {formatWon(discounted)}
+      </span>
+    </div>
+  );
+}
+
+// Shared text-overlay block used both by the built-in drawn design and by
+// custom uploaded designs. Every field is placed independently via
+// settings.positions[type][field] (x/y = % of card width/height, anchored at
+// the field's own center) — moving one field never affects another.
+// `custom` = true when a user-uploaded design image is behind this overlay;
+// in that case we skip the built-in divider line above the allergen text,
+// since a custom design typically already has its own line/border there.
+function CardTextOverlay({ card, settings, px, custom }) {
+  const f = settings.fonts;
+  const type = card.type;
+  const showOrigin = type !== "no-origin";
+  const allergens = card.allergens || [];
+  const allergenText = allergens.length ? getAllergenLabels(allergens) : "";
+  const descriptionFamily = resolveFontFamily("description", settings);
+  const nameFamily = resolveFontFamily("name", settings);
+  const originFamily = resolveFontFamily("origin", settings);
+  const priceFamily = resolveFontFamily("price", settings);
+  const allergenFamily = resolveFontFamily("allergen", settings);
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+      {card.description && (
+        <div style={{ ...absPosStyle(settings, type, "description"), fontFamily: descriptionFamily, fontSize: px(f.descriptionSize), color: settings.descriptionColor, textAlign: "center", lineHeight: 1.3 }}>
+          {card.description}
+        </div>
+      )}
+      <div style={{ ...absPosStyle(settings, type, "name"), fontFamily: nameFamily, fontSize: px(f.nameSize), fontWeight: 900, color: settings.nameColor, textAlign: "center", lineHeight: 1.15 }}>
+        {card.name || "제품명"}
+      </div>
+      <div style={{ ...absPosStyle(settings, type, "origin"), fontFamily: originFamily, fontSize: px(f.originSize), color: settings.originColor, textAlign: "center", lineHeight: 1.45 }}>
+        {showOrigin && card.origin ? card.origin : card.message ? card.message : null}
+      </div>
+      <div style={{ ...absPosStyle(settings, type, "price"), textAlign: "center" }}>
+        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={settings.priceColor} priceFamily={priceFamily} priceSize={f.priceSize} px={px} />
+      </div>
+      {showOrigin && (
+        <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: settings.allergenColor, textAlign: "center", lineHeight: 1.4,
+          borderTop: custom ? "none" : "0.5px solid #e0d8cc", paddingTop: custom ? 0 : px(f.allergenSize) * 0.5, minHeight: allergenText ? undefined : px(f.allergenSize) * 1.4 }}>
+          {allergenText}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShowCard({ card, settings, designs, scale = SCREEN_SCALE }) {
+  const { width: wMm, height: hMm } = settings.sizes[card.type];
+  const w = mmToPx(wMm, scale), h = mmToPx(hMm, scale);
+  const px = (pt) => ptToPx(pt, scale);
+  const isSeason = card.type === "season";
+  const design = designs && designs[card.type];
+  const custom = design && design.image;
+  const sw = Math.max(0.6, scale * 0.16);
+
+  return (
+    <div style={{ width: w, height: h, position: "relative", background: "white", overflow: "hidden",
+      fontFamily: "inherit", userSelect: "none", flexShrink: 0 }}>
+      {custom ? (
+        <img src={custom} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
+      ) : (
+        <>
+          {isSeason && (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #FFF9F0 0%, #FFF5E8 50%, #FFF9F0 100%)", pointerEvents: "none" }} />
+          )}
+          <CardFrame w={w} h={h} sw={sw} />
+        </>
+      )}
+      <div style={{ position: "absolute", inset: 0 }}>
+        <CardTextOverlay card={card} settings={settings} px={px} custom={!!custom} />
+      </div>
+    </div>
+  );
+}
+
+function PrintCard({ card, settings, designs }) {
+  const { width: wMm, height: hMm } = settings.sizes[card.type];
+  const PRINT_SCALE = 3.78;
+  const w = wMm * PRINT_SCALE, h = hMm * PRINT_SCALE;
+  const px = (pt) => pt * 1.333;
+  const isSeason = card.type === "season";
+  const design = designs && designs[card.type];
+  const custom = design && design.image;
+
+  return (
+    <div style={{ width: `${wMm}mm`, height: `${hMm}mm`, position: "relative", background: "white",
+      fontFamily: "inherit", boxSizing: "border-box", pageBreakInside: "avoid", overflow: "hidden" }}>
+      {custom ? (
+        <img src={custom} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
+      ) : (
+        <>
+          {isSeason && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #FFF9F0, #FFF5E8, #FFF9F0)", pointerEvents: "none" }} />}
+          <CardFrame w={w} h={h} sw={1.4} />
+        </>
+      )}
+      <div style={{ position: "absolute", inset: 0 }}>
+        <CardTextOverlay card={card} settings={settings} px={px} custom={!!custom} />
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════ Manage tab ═══════════════════════ */
+
+function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDesigns }) {
+  const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef(null);
+  const size = settings.sizes[type];
+  const design = designs[type];
+  const sample = SAMPLE_CARDS[type];
+
+  function updateSize(key, val) {
+    setSettings(s => ({ ...s, sizes: { ...s.sizes, [type]: { ...s.sizes[type], [key]: val } } }));
+  }
+  function setDesign(patch) {
+    setDesigns(d => ({ ...d, [type]: { ...d[type], ...patch } }));
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+      if (isPdf) {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        const page = await pdf.getPage(1);
+        const base = page.getViewport({ scale: 1 });
+        // Render at a high scale for print-quality output (~ roughly 300dpi+ at target mm size)
+        const targetPxWidth = mmToPx(size.width, 3.78 * 3.2);
+        const renderScale = Math.max(6, targetPxWidth / base.width);
+        const viewport = page.getViewport({ scale: renderScale });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        setDesign({ image: canvas.toDataURL("image/png", 1.0), fileKind: "pdf", fileName: file.name });
+      } else {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const kind = /\.svg$/i.test(file.name) || file.type === "image/svg+xml" ? "svg" : "raster";
+        setDesign({ image: dataUrl, fileKind: kind, fileName: file.name });
+      }
+    } catch (err) {
+      console.error(err);
+      alert("이미지를 불러오지 못했습니다. 파일 형식을 확인해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resetDesign() {
+    setDesign({ image: null, fileKind: null, fileName: "" });
+  }
+
+  return (
+    <div className="design-card">
+      <div className="design-card-top">
+        <div className="design-preview-box">
+          <ShowCard card={sample} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.6} />
+        </div>
+        <div className="design-info">
+          <p className="design-title">
+            {label}
+            {design.image && (
+              <span className="design-badge">
+                {design.fileKind === "svg" ? "SVG 업로드" : design.fileKind === "pdf" ? "PDF 업로드" : "이미지 업로드"}
+              </span>
+            )}
+          </p>
+          <p className="design-meta">
+            {type === "no-origin" ? "원산지 표기 없음" : type === "season" ? "시즌 특별 디자인" :
+             type === "cookie" ? "정방형 소형 카드" : type === "small" ? "컴팩트 사이즈" : "기본 표준 카드"}
+            {design.fileName ? ` · ${design.fileName}` : ""}
+          </p>
+
+          <div className="design-size-row">
+            <label className="mini-num">
+              <span>가로</span>
+              <input type="number" min={30} max={200} step={1} value={size.width}
+                onChange={(e) => updateSize("width", Number(e.target.value))} />
+              <span className="unit">mm</span>
+            </label>
+            <label className="mini-num">
+              <span>세로</span>
+              <input type="number" min={20} max={200} step={1} value={size.height}
+                onChange={(e) => updateSize("height", Number(e.target.value))} />
+              <span className="unit">mm</span>
+            </label>
+          </div>
+
+          <div className="design-actions">
+            <label className="upload-label">
+              <IconUpload size={12} />
+              {busy ? "처리 중..." : design.image ? "디자인 교체" : "디자인 이미지 업로드"}
+              <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.svg,.pdf,image/*,application/pdf"
+                disabled={busy} onChange={handleFile} />
+            </label>
+            {design.image && (
+              <button className="btn-ghost-sm" onClick={resetDesign} disabled={busy}>
+                <IconRefresh size={11} /> 기본 디자인으로 되돌리기
+              </button>
+            )}
+          </div>
+          <p className="design-hint">
+            PNG · JPG · SVG · PDF 업로드 가능 (SVG는 벡터 화질 그대로, PDF는 첫 페이지를 고해상도로 변환해 사용합니다).
+            업로드한 디자인은 위에서 설정한 가로×세로 사이즈에 맞춰 출력됩니다.
+          </p>
+        </div>
+      </div>
+
+      <div className="position-section">
+        <p className="position-section-title">텍스트 위치 조정 (%) <span>— 입력창 클릭 후 키보드 화살표로도 이동 가능 · 각 항목은 서로 영향 없이 독립적으로 움직입니다</span></p>
+        <div className="position-grid">
+          {POSITION_FIELDS.map(({ key, label: fLabel }) => (
+            <PositionControl key={key} label={fLabel} pos={getPos(settings, type, key)} defaultPos={POSITION_PRESETS[type][key]}
+              onChange={(pos) => setSettings(s => ({ ...s, positions: { ...s.positions, [type]: { ...s.positions[type], [key]: pos } } }))} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PositionControl({ label, pos, defaultPos, onChange }) {
+  const step = 1;
+  function clamp(v) { return Math.max(0, Math.min(100, v)); }
+  function nudge(dx, dy) {
+    const nx = clamp(Math.round((pos.x + dx * step) * 10) / 10);
+    const ny = clamp(Math.round((pos.y + dy * step) * 10) / 10);
+    onChange({ x: nx, y: ny });
+  }
+  function handleKeyDown(e) {
+    const map = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+    if (map[e.key]) {
+      e.preventDefault();
+      nudge(map[e.key][0], map[e.key][1]);
+    }
+  }
+  const moved = pos.x !== defaultPos.x || pos.y !== defaultPos.y;
+  return (
+    <div className="position-control" onKeyDown={handleKeyDown}>
+      <div className="position-control-head">
+        <span>{label}</span>
+        {moved && <button className="pos-reset" onClick={() => onChange({ ...defaultPos })}>초기화</button>}
+      </div>
+      <div className="position-control-body">
+        <div className="pos-xy">
+          <label>
+            <span>X</span>
+            <input type="number" min={0} max={100} step={1} value={pos.x} onChange={(e) => onChange({ ...pos, x: clamp(Number(e.target.value) || 0) })} />
+          </label>
+          <label>
+            <span>Y</span>
+            <input type="number" min={0} max={100} step={1} value={pos.y} onChange={(e) => onChange({ ...pos, y: clamp(Number(e.target.value) || 0) })} />
+          </label>
+        </div>
+        <div className="pos-arrows">
+          <button tabIndex={-1} className="pos-arrow up" onClick={() => nudge(0, -1)}><IconChevronUp size={11} /></button>
+          <button tabIndex={-1} className="pos-arrow left" onClick={() => nudge(-1, 0)}><IconChevronLeft size={11} /></button>
+          <button tabIndex={-1} className="pos-arrow down" onClick={() => nudge(0, 1)}><IconChevronDown size={11} /></button>
+          <button tabIndex={-1} className="pos-arrow right" onClick={() => nudge(1, 0)}><IconChevronRight size={11} /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NumberInput({ label, value, onChange, min, max, step = 0.5, unit = "" }) {
+  return (
+    <div className="num-row">
+      <span>{label}</span>
+      <div className="num-input-grp">
+        <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} min={min} max={max} step={step} />
+        {unit && <span className="unit">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ColorInput({ label, value, onChange }) {
+  return (
+    <div className="color-row">
+      <span>{label}</span>
+      <div className="swatch-grp">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+        <span className="hex">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function FontFieldRow({ label, fieldKey, settings, setSettings }) {
+  const currentId = settings.fontFamilies[fieldKey] || "default";
+  const [busy, setBusy] = useState(false);
+
+  async function handleUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      await uploadCustomFont(file, fieldKey, setSettings);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleSelect(e) {
+    const v = e.target.value;
+    setSettings(s => ({ ...s, fontFamilies: { ...s.fontFamilies, [fieldKey]: v === "default" ? null : v } }));
+  }
+
+  return (
+    <div className="font-field-row">
+      <span>{label}</span>
+      <div className="font-field-controls">
+        <select value={currentId} onChange={handleSelect}>
+          <option value="default">기본</option>
+          {(settings.customFonts || []).map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+        </select>
+        <label className="upload-label-sm">
+          <IconUpload size={10} /> {busy ? "..." : "TTF"}
+          <input type="file" accept=".ttf,font/ttf,font/sfnt" disabled={busy} onChange={handleUpload} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving, savedAt, error, loaded }) {
+  function updateFont(key, val) {
+    setSettings(s => ({ ...s, fonts: { ...s.fonts, [key]: val } }));
+  }
+
+  return (
+    <div className="manage-wrap">
+      <div className="manage-savebar">
+        <div className="manage-savebar-info">
+          {!loaded ? (
+            <span className="manage-savebar-status"><IconRefresh size={12} className="spin" /> 저장된 설정 불러오는 중...</span>
+          ) : error ? (
+            <span className="manage-savebar-status error"><IconAlert size={12} /> {error}</span>
+          ) : savedAt ? (
+            <span className="manage-savebar-status ok"><IconCheck size={12} /> {new Date(savedAt).toLocaleString("ko-KR")} 저장됨 — 모든 지점에 동일하게 반영됩니다</span>
+          ) : (
+            <span className="manage-savebar-status">업로드한 디자인 · 폰트 · 색상 · 위치는 "변경 저장"을 눌러야 고정되고, 모든 지점 화면에 반영됩니다.</span>
+          )}
+        </div>
+        <button className="manage-save-btn" onClick={onSave} disabled={saving || !loaded}>
+          <IconSave size={13} /> {saving ? "저장 중..." : "변경 저장"}
+        </button>
+      </div>
+
+      <div className="manage-columns">
+        <section className="manage-col-left">
+          <div className="manage-section-head">
+            <IconImage size={15} style={{ color: "#B5762A" }} />
+            <h2>카드 종류별 디자인 &amp; 사이즈</h2>
+            <span className="sub">— 직접 만든 디자인을 업로드하고, 같은 곳에서 사이즈까지 설정하세요</span>
+          </div>
+          <div className="design-grid">
+            {CARD_TYPE_LIST.map(({ id, label }) => (
+              <DesignAndSizeCard key={id} type={id} label={label} settings={settings} setSettings={setSettings}
+                designs={designs} setDesigns={setDesigns} />
+            ))}
+          </div>
+        </section>
+
+        <section className="manage-col-right">
+          <div className="manage-section-head">
+            <IconSettings size={15} style={{ color: "#B5762A" }} />
+            <h2>폰트 사이즈 &amp; 색상</h2>
+            <span className="sub">— 항목별로 크기·폰트(TTF 업로드)·색상을 따로 지정할 수 있어요. 카드는 항상 사각형으로 출력됩니다</span>
+          </div>
+          <div className="settings-card">
+            <div className="field-group">
+              <p className="field-group-title">제품 설명</p>
+              <NumberInput label="크기" value={settings.fonts.descriptionSize} onChange={(v) => updateFont("descriptionSize", v)} min={4} max={14} step={0.5} unit="pt" />
+              <FontFieldRow label="폰트" fieldKey="description" settings={settings} setSettings={setSettings} />
+              <ColorInput label="글자 색상" value={settings.descriptionColor} onChange={(v) => setSettings(s => ({ ...s, descriptionColor: v }))} />
+            </div>
+            <div className="field-group">
+              <p className="field-group-title">제품명</p>
+              <NumberInput label="크기" value={settings.fonts.nameSize} onChange={(v) => updateFont("nameSize", v)} min={8} max={30} step={0.5} unit="pt" />
+              <FontFieldRow label="폰트" fieldKey="name" settings={settings} setSettings={setSettings} />
+              <ColorInput label="글자 색상" value={settings.nameColor} onChange={(v) => setSettings(s => ({ ...s, nameColor: v }))} />
+            </div>
+            <div className="field-group">
+              <p className="field-group-title">원산지</p>
+              <NumberInput label="크기" value={settings.fonts.originSize} onChange={(v) => updateFont("originSize", v)} min={4} max={14} step={0.5} unit="pt" />
+              <FontFieldRow label="폰트" fieldKey="origin" settings={settings} setSettings={setSettings} />
+              <ColorInput label="글자 색상" value={settings.originColor} onChange={(v) => setSettings(s => ({ ...s, originColor: v }))} />
+            </div>
+            <div className="field-group">
+              <p className="field-group-title">가격</p>
+              <NumberInput label="크기" value={settings.fonts.priceSize} onChange={(v) => updateFont("priceSize", v)} min={8} max={30} step={0.5} unit="pt" />
+              <FontFieldRow label="폰트" fieldKey="price" settings={settings} setSettings={setSettings} />
+              <ColorInput label="글자 색상" value={settings.priceColor} onChange={(v) => setSettings(s => ({ ...s, priceColor: v }))} />
+            </div>
+            <div className="field-group">
+              <p className="field-group-title">알레르기 유발물질</p>
+              <NumberInput label="크기" value={settings.fonts.allergenSize} onChange={(v) => updateFont("allergenSize", v)} min={4} max={12} step={0.5} unit="pt" />
+              <FontFieldRow label="폰트" fieldKey="allergen" settings={settings} setSettings={setSettings} />
+              <ColorInput label="글자 색상" value={settings.allergenColor} onChange={(v) => setSettings(s => ({ ...s, allergenColor: v }))} />
+            </div>
+          </div>
+
+          <button className="reset-all-btn" onClick={() => setSettings(DEFAULT_SETTINGS)}>
+            <IconRefresh size={11} /> 기본값으로 초기화
+          </button>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════ App ═══════════════════════ */
+
+function App() {
+  const [mainTab, setMainTab] = useState("print");
+  const [cardType, setCardType] = useState("standard");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [price, setPrice] = useState("");
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [message, setMessage] = useState("");
+  const [allergens, setAllergens] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [rightTab, setRightTab] = useState("preview");
+  const [previewDark, setPreviewDark] = useState(false);
+  const [dbOpen, setDbOpen] = useState(false);
+  const [dbSearch, setDbSearch] = useState("");
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [designs, setDesigns] = useState(DEFAULT_DESIGNS);
+  const [manageLoaded, setManageLoaded] = useState(false);
+  const [manageSaving, setManageSaving] = useState(false);
+  const [manageSavedAt, setManageSavedAt] = useState(null);
+  const [manageError, setManageError] = useState(null);
+
+  const [savedCards, setSavedCards] = useState([]);
+  const [savedCardsLoading, setSavedCardsLoading] = useState(false);
+  const [savingCard, setSavingCard] = useState(false);
+
+  // Load the shared manage-tab settings + uploaded designs from Firebase once
+  // on startup (falls back to the built-in defaults if nothing saved yet).
+  useEffect(() => {
+    (async () => {
+      try {
+        const [sRes, dRes] = await Promise.all([fetch(SETTINGS_DB_URL), fetch(DESIGNS_BASE_URL + ".json")]);
+        const sData = sRes.ok ? await sRes.json() : null;
+        const dData = dRes.ok ? await dRes.json() : null;
+        if (sData) {
+          setSettings(mergeSettings(sData));
+          if (sData.customFonts && sData.customFonts.length) hydrateCustomFonts(sData.customFonts);
+        }
+        if (dData) setDesigns(prev => ({ ...DEFAULT_DESIGNS, ...dData }));
+      } catch (err) {
+        console.error("manage settings load failed", err);
+      } finally {
+        setManageLoaded(true);
+      }
+    })();
+  }, []);
+
+  // "변경 저장" — persists fonts/sizes/colors/positions + every uploaded design
+  // image to Firebase so the look is fixed and shared across every computer.
+  async function saveManageChanges() {
+    setManageSaving(true);
+    setManageError(null);
+    try {
+      await fetch(SETTINGS_DB_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) });
+      await Promise.all(CARD_TYPE_LIST.map(t => {
+        const d = designs[t.id];
+        const payload = d && d.image ? d : null;
+        return fetch(`${DESIGNS_BASE_URL}/${t.id}.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      }));
+      setManageSavedAt(Date.now());
+    } catch (err) {
+      console.error(err);
+      setManageError("저장에 실패했습니다. 네트워크 상태를 확인해 주세요.");
+    } finally {
+      setManageSaving(false);
+    }
+  }
+
+  function loadSavedCards() {
+    setSavedCardsLoading(true);
+    fetch(SAVED_CARDS_BASE_URL + ".json")
+      .then(r => r.json())
+      .then(data => {
+        const list = Object.entries(data || {})
+          .map(([id, v]) => ({ ...v, id }))
+          .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+        setSavedCards(list);
+      })
+      .catch(() => {})
+      .finally(() => setSavedCardsLoading(false));
+  }
+  useEffect(() => { loadSavedCards(); }, []);
+
+  // Saves the current form as a reusable card template (제품명/설명/원산지/가격/
+  // 알레르기 etc.) so it can be loaded straight into the print queue later —
+  // separate from "인쇄 목록에 추가", which only adds to today's print batch.
+  async function saveCardToLibrary() {
+    if (!name.trim()) return;
+    setSavingCard(true);
+    const record = { type: cardType, name, description, origin, price, allergens, message,
+      discountPercent: Number(discountPercent) || 0, savedAt: Date.now() };
+    try {
+      const res = await fetch(SAVED_CARDS_BASE_URL + ".json", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(record),
+      });
+      const data = await res.json();
+      setSavedCards(prev => [{ ...record, id: data.name }, ...prev]);
+      saveOriginIfNew(origin);
+    } catch (err) {
+      alert("카드 저장에 실패했습니다.");
+    } finally {
+      setSavingCard(false);
+    }
+  }
+  function deleteSavedCard(id) {
+    setSavedCards(prev => prev.filter(c => c.id !== id));
+    fetch(`${SAVED_CARDS_BASE_URL}/${id}.json`, { method: "DELETE" }).catch(() => {});
+  }
+  function addSavedToQueue(saved) {
+    setQueue(prev => [...prev, { ...saved, id: uid() }]);
+    setRightTab("queue");
+  }
+  function loadSavedToForm(saved) {
+    setCardType(saved.type); setName(saved.name); setDescription(saved.description || "");
+    setOrigin(saved.origin || ""); setPrice(saved.price || ""); setAllergens(saved.allergens || []);
+    setMessage(saved.message || ""); setDiscountPercent(saved.discountPercent ? String(saved.discountPercent) : "");
+    setDiscountOpen(!!saved.discountPercent);
+    setRightTab("preview");
+  }
+
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState(null);
+
+  const [originList, setOriginList] = useState([]);
+  const [originListLoading, setOriginListLoading] = useState(false);
+  const [originOpen, setOriginOpen] = useState(false);
+  const originSavedRef = useRef(new Set());
+
+  function loadOrigins() {
+    setOriginListLoading(true);
+    fetch(ORIGIN_DB_URL)
+      .then(r => r.json())
+      .then(data => {
+        const list = Object.values(data || {}).filter(Boolean);
+        const unique = Array.from(new Set(list)).sort((a, b) => a.localeCompare(b, "ko"));
+        setOriginList(unique);
+        originSavedRef.current = new Set(unique);
+      })
+      .catch(() => {})
+      .finally(() => setOriginListLoading(false));
+  }
+
+  // Adds a newly-typed origin string to the shared list (Firebase) so every
+  // location/staff member sees the same saved wording next time — this is
+  // how free-typed origin text gradually becomes a unified combobox list.
+  function saveOriginIfNew(value) {
+    const v = (value || "").trim();
+    if (!v || originSavedRef.current.has(v)) return;
+    originSavedRef.current.add(v);
+    setOriginList(prev => Array.from(new Set([...prev, v])).sort((a, b) => a.localeCompare(b, "ko")));
+    fetch(ORIGIN_DB_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(v),
+    }).catch(() => {});
+  }
+
+  useEffect(() => { loadProducts(); loadOrigins(); }, []);
+
+  function loadProducts() {
+    setProductsLoading(true);
+    setProductsError(null);
+    fetch(PRODUCT_DB_URL)
+      .then(r => { if (!r.ok) throw new Error("네트워크 오류 (" + r.status + ")"); return r.json(); })
+      .then(data => {
+        const list = Object.values(data || {})
+          .filter(p => p && p["제품이름"] && !p._hidden)
+          .map(p => ({
+            name: p["제품이름"],
+            category: p["카테고리"] || "",
+            allergens: ALLERGENS.filter(a => p[a] === "Yes"),
+            origin: p["원산지"] || [],
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+        setProducts(list);
+      })
+      .catch(err => setProductsError(err.message || "불러오기에 실패했습니다"))
+      .finally(() => setProductsLoading(false));
+  }
+
+  const currentCard = { id: "current", type: cardType, name, description, origin, price, allergens, message, discountPercent: Number(discountPercent) || 0 };
+
+  const filteredProducts = useMemo(() => {
+    const q = dbSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+  }, [products, dbSearch]);
+
+  function toggleAllergen(a) {
+    setAllergens(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+  }
+  function loadProduct(p) {
+    setName(p.name);
+    setAllergens(p.allergens);
+    setOrigin(originItemsToText(p.origin)); setPrice(""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
+    setDbOpen(false); setDbSearch(""); setOriginOpen(false);
+  }
+  function resetForm() {
+    setName(""); setDescription(""); setOrigin(""); setPrice(""); setAllergens([]); setMessage("");
+    setDiscountPercent(""); setDiscountOpen(false); setOriginOpen(false);
+  }
+  function addToQueue() {
+    if (!name.trim()) return;
+    saveOriginIfNew(origin);
+    setQueue(prev => [...prev, { ...currentCard, id: uid() }]);
+    setRightTab("queue");
+  }
+
+  const showOriginField = cardType !== "no-origin";
+
+  return (
+    <div className="app">
+      <div id="print-area" style={{ display: "none" }}>
+        <div className="print-grid">
+          {queue.map(card => <PrintCard key={card.id} card={card} settings={settings} designs={designs} />)}
+        </div>
+      </div>
+
+      <header className="header">
+        <div className="header-left">
+          <div className="logo-row">
+            <div className="logo-badge">H</div>
+            <div>
+              <p className="brand-name">HARE,HARE</p>
+              <p className="brand-sub">쇼카드 출력 시스템</p>
+            </div>
+          </div>
+          <div className="maintabs">
+            <button className={"maintab-btn" + (mainTab === "print" ? " active" : "")} onClick={() => setMainTab("print")}>
+              <IconPrinter size={12} /> 쇼카드 출력
+            </button>
+            <button className={"maintab-btn" + (mainTab === "manage" ? " active" : "")} onClick={() => setMainTab("manage")}>
+              <IconSettings size={12} /> 관리
+            </button>
+          </div>
+        </div>
+        <button className="print-btn" disabled={queue.length === 0} onClick={() => window.print()}>
+          <IconPrinter size={13} /> A4 인쇄{queue.length > 0 ? ` (${queue.length}장)` : ""}
+        </button>
+      </header>
+
+      <div className="body">
+        {mainTab === "print" && (
+          <React.Fragment>
+            <aside className="aside">
+              <div className="aside-inner">
+                <section>
+                  <span className="label-eyebrow">카드 종류</span>
+                  <div className="type-grid">
+                    {CARD_TYPE_LIST.map(({ id, label }) => (
+                      <button key={id} className={"type-chip" + (cardType === id ? " active" : "")} onClick={() => setCardType(id)}>
+                        {label}<span className="dim">{settings.sizes[id].width}×{settings.sizes[id].height}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <span className="label-eyebrow">신제품 DB 불러오기</span>
+                  <div className="db-wrap">
+                    <button className="db-toggle" onClick={() => setDbOpen(v => !v)}>
+                      <span className="db-toggle-label">
+                        <IconPackage size={12} style={{ color: "#C17B45" }} />
+                        알레르기 자료에서 자동 불러오기{products.length > 0 ? ` (${products.length})` : ""}
+                      </span>
+                      <IconChevronDown size={12} className={"chev" + (dbOpen ? " open" : "")} />
+                    </button>
+                    {dbOpen && (
+                      <div className="db-panel">
+                        <input className="db-search" placeholder="제품명 또는 카테고리 검색"
+                          value={dbSearch} onChange={(e) => setDbSearch(e.target.value)} autoFocus />
+                        {productsLoading ? (
+                          <div className="db-status">불러오는 중...</div>
+                        ) : productsError ? (
+                          <div className="db-status">
+                            <IconAlert size={12} /> {productsError}
+                            <button className="db-retry" onClick={loadProducts}>다시 시도</button>
+                          </div>
+                        ) : filteredProducts.length === 0 ? (
+                          <div className="db-empty">일치하는 제품이 없습니다</div>
+                        ) : (
+                          <div className="db-list">
+                            {filteredProducts.map((p, i) => (
+                              <button key={p.name + i} className="db-item" onClick={() => loadProduct(p)}>
+                                <span className="db-item-name">
+                                  {p.name}
+                                  {p.category && <span className="db-item-cat">{p.category}</span>}
+                                </span>
+                                <span className="db-item-meta">{p.allergens.length > 0 ? p.allergens.join(",") : "알레르기 없음"}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <div className="divider" />
+
+                <section className="field">
+                  <label>제품명</label>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="예) 크로와상" />
+                </section>
+
+                <section className="field">
+                  <label>제품 설명 (선택)</label>
+                  <input value={description} onChange={e => setDescription(e.target.value)} placeholder="예) 겉은 바삭, 속은 촉촉한" />
+                </section>
+
+                {showOriginField && (
+                  <section className="field">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <label style={{ marginBottom: 0 }}>원산지</label>
+                      <button type="button" className="origin-list-toggle" onClick={() => setOriginOpen(v => !v)}>
+                        저장된 표기 {originList.length > 0 ? `(${originList.length})` : ""}
+                        <IconChevronDown size={11} className={"chev" + (originOpen ? " open" : "")} />
+                      </button>
+                    </div>
+                    <div className="origin-combo">
+                      <textarea value={origin} onChange={e => setOrigin(e.target.value)}
+                        onFocus={() => setOriginOpen(true)}
+                        onBlur={() => { saveOriginIfNew(origin); setTimeout(() => setOriginOpen(false), 120); }}
+                        placeholder="예) 프랑스산 버터, 국산 밀가루" rows={2} />
+                      {originOpen && (
+                        <div className="origin-panel">
+                          {originListLoading ? (
+                            <p className="db-status">불러오는 중...</p>
+                          ) : (() => {
+                            const q = origin.trim().toLowerCase();
+                            const matches = q ? originList.filter(o => o.toLowerCase().includes(q)) : originList;
+                            const exact = originList.some(o => o === origin.trim());
+                            return (
+                              <div className="db-list origin-list">
+                                {!exact && origin.trim() && (
+                                  <button className="db-item origin-item-new" onMouseDown={(e) => { e.preventDefault(); saveOriginIfNew(origin); setOriginOpen(false); }}>
+                                    <span className="db-item-name">＋ "{origin.trim()}" 새 표기로 저장</span>
+                                  </button>
+                                )}
+                                {matches.length === 0 && !origin.trim() && (
+                                  <p className="db-empty">아직 저장된 원산지 표기가 없어요.<br/>직접 입력하면 자동으로 목록에 저장됩니다.</p>
+                                )}
+                                {matches.map((o, i) => (
+                                  <button key={o + i} className="db-item" onMouseDown={(e) => { e.preventDefault(); setOrigin(o); setOriginOpen(false); }}>
+                                    <span className="db-item-name">{o}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                    <p className="field-hint">기존 표기를 선택하거나, 새로 입력하면 팀 전체가 공유하는 목록에 저장됩니다.</p>
+                  </section>
+                )}
+
+                {!showOriginField && (
+                  <section className="field">
+                    <label>안내 메시지 (선택)</label>
+                    <input value={message} onChange={e => setMessage(e.target.value)} placeholder="예) 필요하신 고객님은 직원을 불러주세요!" />
+                  </section>
+                )}
+
+                <section className="field">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <label style={{ marginBottom: 0 }}>금액</label>
+                    <button type="button" className={"discount-toggle" + (discountOpen ? " active" : "")}
+                      onClick={() => setDiscountOpen(v => !v)} title="가격 할인 표기">
+                      <IconPercent size={11} /> 할인
+                    </button>
+                  </div>
+                  <div className="price-wrap">
+                    <input value={price} onChange={e => setPrice(e.target.value)} placeholder="예) 3,800" />
+                    <span className="price-suffix">원</span>
+                  </div>
+                  {discountOpen && (
+                    <div className="discount-wrap">
+                      <input type="number" min={1} max={99} value={discountPercent}
+                        onChange={e => setDiscountPercent(e.target.value)} placeholder="숫자 직접 입력, 예) 20" />
+                      <span className="discount-suffix">% 할인</span>
+                    </div>
+                  )}
+                </section>
+
+                {showOriginField && (
+                  <section>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <label className="label-eyebrow" style={{ marginBottom: 0 }}>알레르기 유발물질</label>
+                      {allergens.length > 0 && <button className="clear-link" onClick={() => setAllergens([])}>전체 해제</button>}
+                    </div>
+                    <div className="allergen-chips">
+                      {ALLERGENS.map(a => {
+                        const active = allergens.includes(a);
+                        return (
+                          <button key={a} className={"allergen-chip" + (active ? " active" : "")} onClick={() => toggleAllergen(a)}>
+                            {active && <IconCheck size={8} strokeWidth={3} />}
+                            {a}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {allergens.length === 0 && <p className="hint">선택 없으면 "해당없음" 표기</p>}
+                  </section>
+                )}
+
+                <div className="actions-row">
+                  <button className="btn-add" disabled={!name.trim()} onClick={addToQueue}>
+                    <IconPlus size={13} /> 인쇄 목록에 추가
+                  </button>
+                  <button className="btn-save-card" disabled={!name.trim() || savingCard} onClick={saveCardToLibrary} title="저장된 카드 목록에 저장">
+                    <IconBookmark size={13} /> {savingCard ? "저장 중..." : "카드로 저장"}
+                  </button>
+                  <button className="btn-reset" title="초기화" onClick={resetForm}>
+                    <IconRefresh size={13} />
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            <main className="main">
+              <div className="righttabs">
+                <button className={"righttab-btn" + (rightTab === "preview" ? " active" : "")} onClick={() => setRightTab("preview")}>
+                  <IconEye size={12} /> 미리보기
+                </button>
+                <button className={"righttab-btn" + (rightTab === "queue" ? " active" : "")} onClick={() => setRightTab("queue")}>
+                  <IconPrinter size={12} /> 인쇄 목록 ({queue.length})
+                </button>
+                <button className={"righttab-btn" + (rightTab === "saved" ? " active" : "")} onClick={() => setRightTab("saved")}>
+                  <IconBookmark size={12} /> 저장된 카드 ({savedCards.length})
+                </button>
+              </div>
+
+              {rightTab === "preview" && (
+                <div className={"preview-pane" + (previewDark ? " dark" : "")}>
+                  <div className="preview-top-row">
+                    <p className="preview-caption">
+                      {CARD_TYPE_LIST.find(c => c.id === cardType)?.label} — {settings.sizes[cardType].width}×{settings.sizes[cardType].height}mm
+                    </p>
+                    <button className="preview-mode-btn" onClick={() => setPreviewDark(v => !v)}>
+                      {previewDark ? <IconSun size={12} /> : <IconMoon size={12} />}
+                      {previewDark ? "라이트 모드" : "다크 모드"}
+                    </button>
+                  </div>
+                  <ShowCard card={currentCard} settings={settings} designs={designs} />
+                  <p className="preview-note">입력 내용이 실시간으로 반영됩니다</p>
+                </div>
+              )}
+
+              {rightTab === "queue" && (
+                <div className="queue-pane">
+                  {queue.length === 0 ? (
+                    <div className="queue-empty">
+                      <IconPrinter size={32} style={{ opacity: .2 }} />
+                      <p className="t1">인쇄 목록이 비어있습니다</p>
+                      <p className="t2">왼쪽에서 카드를 작성하고 추가하세요</p>
+                    </div>
+                  ) : (
+                    <React.Fragment>
+                      <div className="queue-head">
+                        <p className="queue-head-info">총 {queue.length}장 — A4 2열 배치 인쇄</p>
+                        <button className="queue-clear" onClick={() => setQueue([])}>전체 삭제</button>
+                      </div>
+                      <div className="queue-items">
+                        {queue.map((card, idx) => (
+                          <div key={card.id} className="queue-item">
+                            <span className="queue-idx">{idx + 1}</span>
+                            <div className="queue-thumb">
+                              <ShowCard card={card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.42} />
+                            </div>
+                            <div className="queue-info">
+                              <p className="queue-name">{card.name}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${card.price}`}</p>
+                              {card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
+                            </div>
+                            <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
+                              <IconTrash size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )}
+                </div>
+              )}
+
+              {rightTab === "saved" && (
+                <div className="queue-pane">
+                  {savedCardsLoading ? (
+                    <div className="queue-empty">
+                      <IconRefresh size={28} className="spin" style={{ opacity: .3 }} />
+                      <p className="t1">불러오는 중...</p>
+                    </div>
+                  ) : savedCards.length === 0 ? (
+                    <div className="queue-empty">
+                      <IconBookmark size={32} style={{ opacity: .2 }} />
+                      <p className="t1">저장된 카드가 없습니다</p>
+                      <p className="t2">왼쪽 폼에서 "카드로 저장"을 누르면 여기에 쌓여, 다음에 바로 인쇄 목록에 불러올 수 있어요</p>
+                    </div>
+                  ) : (
+                    <React.Fragment>
+                      <div className="queue-head">
+                        <p className="queue-head-info">총 {savedCards.length}개 저장됨 — 팀 전체가 공유합니다</p>
+                      </div>
+                      <div className="queue-items">
+                        {savedCards.map((card) => (
+                          <div key={card.id} className="queue-item saved-item">
+                            <div className="queue-thumb">
+                              <ShowCard card={card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.42} />
+                            </div>
+                            <div className="queue-info">
+                              <p className="queue-name">{card.name}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${card.price}`}</p>
+                              {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
+                            </div>
+                            <div className="saved-item-actions">
+                              <button className="saved-load-btn" onClick={() => addSavedToQueue(card)} title="인쇄 목록에 추가">
+                                <IconPrinter size={12} /> 인쇄 목록에
+                              </button>
+                              <button className="btn-ghost-sm" onClick={() => loadSavedToForm(card)} title="폼에 불러와서 수정">
+                                <IconRefresh size={11} /> 폼에 불러오기
+                              </button>
+                              <button className="queue-del" onClick={() => deleteSavedCard(card.id)}>
+                                <IconTrash size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )}
+                </div>
+              )}
+            </main>
+          </React.Fragment>
+        )}
+
+        {mainTab === "manage" && (
+          <ManageTab settings={settings} setSettings={setSettings} designs={designs} setDesigns={setDesigns}
+            onSave={saveManageChanges} saving={manageSaving} savedAt={manageSavedAt} error={manageError} loaded={manageLoaded} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
