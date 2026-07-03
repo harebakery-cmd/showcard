@@ -1199,19 +1199,47 @@ function App() {
       .finally(() => setOriginListLoading(false));
   }
 
-  // Adds a newly-typed origin string to the shared list (Firebase) so every
+  // Splits an origin string on top-level commas only — commas that fall
+  // inside (), [], or {} are treated as part of that single entry
+  // (e.g. "밀가루(밀:미국,캐나다산), 호두(미국산)" → ["밀가루(밀:미국,캐나다산)", "호두(미국산)"]).
+  function splitOriginEntries(value) {
+    const s = String(value || "");
+    const parts = [];
+    let cur = "";
+    let depth = 0;
+    for (const ch of s) {
+      if (ch === "(" || ch === "[" || ch === "{") depth++;
+      else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+      if (ch === "," && depth === 0) {
+        parts.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    if (cur.trim()) parts.push(cur.trim());
+    return parts.filter(Boolean);
+  }
+
+  // Adds newly-typed origin entries to the shared list (Firebase) so every
   // location/staff member sees the same saved wording next time — this is
   // how free-typed origin text gradually becomes a unified combobox list.
+  // A single textarea value can contain several comma-separated origin
+  // phrases (e.g. "밀가루(밀:미국,캐나다산), 호두(미국산)"); each one is
+  // saved as its own separate entry rather than the whole string as one.
   function saveOriginIfNew(value) {
-    const v = (value || "").trim();
-    if (!v || originSavedRef.current.has(v)) return;
-    originSavedRef.current.add(v);
-    setOriginList(prev => Array.from(new Set([...prev, v])).sort((a, b) => a.localeCompare(b, "ko")));
-    fetch(ORIGIN_DB_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(v),
-    }).catch(() => {});
+    const entries = splitOriginEntries(value);
+    const newOnes = entries.filter(v => v && !originSavedRef.current.has(v));
+    if (newOnes.length === 0) return;
+    newOnes.forEach(v => originSavedRef.current.add(v));
+    setOriginList(prev => Array.from(new Set([...prev, ...newOnes])).sort((a, b) => a.localeCompare(b, "ko")));
+    newOnes.forEach(v => {
+      fetch(ORIGIN_DB_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v),
+      }).catch(() => {});
+    });
   }
 
   useEffect(() => { loadProducts(); loadOrigins(); }, []);
@@ -1388,12 +1416,17 @@ function App() {
                           ) : (() => {
                             const q = origin.trim().toLowerCase();
                             const matches = q ? originList.filter(o => o.toLowerCase().includes(q)) : originList;
-                            const exact = originList.some(o => o === origin.trim());
+                            const entries = splitOriginEntries(origin);
+                            const newEntryCount = entries.filter(e => !originList.includes(e)).length;
                             return (
                               <div className="db-list origin-list">
-                                {!exact && origin.trim() && (
+                                {newEntryCount > 0 && (
                                   <button className="db-item origin-item-new" onMouseDown={(e) => { e.preventDefault(); saveOriginIfNew(origin); setOriginOpen(false); }}>
-                                    <span className="db-item-name">＋ "{origin.trim()}" 새 표기로 저장</span>
+                                    <span className="db-item-name">
+                                      {entries.length > 1
+                                        ? `＋ 새 표기 ${newEntryCount}개 저장 (쉼표로 구분됨)`
+                                        : `＋ "${origin.trim()}" 새 표기로 저장`}
+                                    </span>
                                   </button>
                                 )}
                                 {matches.length === 0 && !origin.trim() && (
