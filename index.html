@@ -386,6 +386,31 @@ const SAVED_CARDS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1
 // so products loaded from that source map 1:1 without translation.
 const ALLERGENS = ["계란","우유","메밀","땅콩","대두","밀","고등어","게","새우","돼지고기","복숭아","토마토","아황산류","호두","닭고기","쇠고기","오징어","조개류","잣","꿀","한천","아몬드"];
 
+function normalizeProductName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ");
+}
+
+function mergeLoadedProducts(list) {
+  const byName = new Map();
+  list.forEach(p => {
+    const key = normalizeProductName(p.name).toLowerCase();
+    if (!key) return;
+    const current = byName.get(key);
+    if (!current) {
+      byName.set(key, { ...p, name: normalizeProductName(p.name) });
+      return;
+    }
+    byName.set(key, {
+      ...current,
+      category: current.category || p.category || "",
+      allergens: Array.from(new Set([...(current.allergens || []), ...(p.allergens || [])])),
+      origin: current.origin && current.origin.length ? current.origin : (p.origin || []),
+      price: current.price || p.price || "",
+    });
+  });
+  return Array.from(byName.values());
+}
+
 const CARD_TYPE_LIST = [
   { id: "standard",   label: "표준" },
   { id: "small",      label: "작은사이즈" },
@@ -1627,15 +1652,15 @@ function App() {
     fetch(PRODUCT_DB_URL)
       .then(r => { if (!r.ok) throw new Error("네트워크 오류 (" + r.status + ")"); return r.json(); })
       .then(data => {
-        const list = Object.values(data || {})
-          .filter(p => p && p["제품이름"] && !p._hidden)
+        const list = mergeLoadedProducts(Object.values(data || {})
+          .filter(p => p && p["제품이름"])
           .map(p => ({
             name: p["제품이름"],
             category: p["카테고리"] || "",
             allergens: ALLERGENS.filter(a => p[a] === "Yes"),
             origin: p["원산지"] || [],
             price: p["판매금액"] != null ? String(p["판매금액"]) : "",
-          }))
+          })))
           .sort((a, b) => a.name.localeCompare(b.name, "ko"));
         setProducts(list);
       })
