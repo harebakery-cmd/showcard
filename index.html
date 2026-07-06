@@ -1980,7 +1980,7 @@ function App() {
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
                               <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${formatPriceText(card.price)}`}</p>
-                              {card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
+                              {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
                               <IconTrash size={13} />
