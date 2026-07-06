@@ -354,8 +354,8 @@
     body > *{display:none !important;}
     #print-root{display:block !important;}
     #print-area{display:block !important;}
-    #print-area{position:fixed;inset:0;width:210mm;min-height:297mm;padding:12mm 10mm;box-sizing:border-box;background:#fff;}
-    .print-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;align-items:start;}
+    #print-area{width:210mm;min-height:297mm;padding:0;box-sizing:border-box;background:#fff;}
+    .print-grid{display:flex;flex-wrap:wrap;gap:0;align-items:flex-start;align-content:flex-start;}
     @page{size:A4 portrait;margin:0;}
   }
 </style>
@@ -516,6 +516,29 @@ function getAllergenLabels(ids) {
   return (ids || []).filter(Boolean).join(" · ") || "해당없음";
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function getValidCardType(type) {
+  return DEFAULT_SETTINGS.sizes[type] ? type : "standard";
+}
+function savedOriginToText(value) {
+  if (!Array.isArray(value)) return value || "";
+  return value
+    .map(o => typeof o === "string" ? o : originItemDisplay(o))
+    .filter(Boolean)
+    .join(", ");
+}
+function normalizeSavedCard(saved) {
+  return {
+    ...saved,
+    type: getValidCardType(saved.type || saved.cardType),
+    name: saved.name || "",
+    description: saved.description || "",
+    origin: formatOriginText(savedOriginToText(saved.origin)),
+    price: formatPriceText(saved.price || ""),
+    allergens: Array.isArray(saved.allergens) ? saved.allergens : [],
+    message: saved.message || "",
+    discountPercent: Number(saved.discountPercent) || 0,
+  };
+}
 // 신제품 등록 시스템의 원산지 항목 표시용 (신규 병합 포맷 {text} / 구 포맷 {name,country} 모두 지원)
 function originItemDisplay(o) {
   if (!o) return "";
@@ -1486,7 +1509,7 @@ function App() {
       .then(r => r.json())
       .then(data => {
         const list = Object.entries(data || {})
-          .map(([id, v]) => ({ ...v, id }))
+          .map(([id, v]) => normalizeSavedCard({ ...v, id }))
           .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
         setSavedCards(list);
       })
@@ -1523,14 +1546,16 @@ function App() {
     fetch(`${SAVED_CARDS_BASE_URL}/${id}.json`, { method: "DELETE" }).catch(() => {});
   }
   function addSavedToQueue(saved) {
-    setQueue(prev => [...prev, { ...saved, id: uid() }]);
+    const card = { ...normalizeSavedCard(saved), id: uid() };
+    setQueue(prev => [...prev, card]);
     setRightTab("queue");
   }
   function loadSavedToForm(saved) {
-    setCardType(saved.type); setName(saved.name); setDescription(saved.description || "");
-    setOrigin(saved.origin || ""); setPrice(saved.price || ""); setAllergens(saved.allergens || []);
-    setMessage(saved.message || ""); setDiscountPercent(saved.discountPercent ? String(saved.discountPercent) : "");
-    setDiscountOpen(!!saved.discountPercent);
+    const card = normalizeSavedCard(saved);
+    setCardType(card.type); setName(card.name); setDescription(card.description);
+    setOrigin(card.origin); setPrice(card.price); setAllergens(card.allergens);
+    setMessage(card.message); setDiscountPercent(card.discountPercent ? String(card.discountPercent) : "");
+    setDiscountOpen(!!card.discountPercent);
     setRightTab("preview");
   }
 
