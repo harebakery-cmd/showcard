@@ -256,9 +256,12 @@
   .originlabel-empty .t2{font-size:12px;margin:0;line-height:1.5;}
   .originlabel-preview{background:#fff;border:1px solid var(--border);border-radius:5px;padding:10px;}
   .originlabel-preview-title{font-size:11px;font-weight:800;margin:0 0 8px;color:#5a4a3a;}
+  .originlabel-showcard-preview{display:flex;align-items:center;justify-content:center;background:#FFFDF8;border:1px solid var(--border);border-radius:4px;padding:10px;overflow:auto;}
   .originlabel-sheet-mini{width:210px;min-height:297px;background:#fff;border:1px solid #ddd;box-shadow:0 1px 4px rgba(28,16,7,.08);padding:12px 10px;box-sizing:border-box;}
   .originlabel-print-sheet{break-after:page;page-break-after:always;width:190mm;min-height:273mm;box-sizing:border-box;background:#fff;display:flex;flex-direction:column;gap:4mm;}
-  .originlabel-print-head{border-bottom:.35mm solid #231916;padding-bottom:3mm;}
+  .originlabel-print-head{display:flex;gap:5mm;align-items:flex-start;border-bottom:.35mm solid #231916;padding-bottom:3mm;}
+  .originlabel-print-card{flex-shrink:0;}
+  .originlabel-print-info{flex:1;min-width:0;}
   .originlabel-print-brand{font-size:8pt;font-weight:900;letter-spacing:.08em;color:#BC9272;}
   .originlabel-print-name{font-size:18pt;font-weight:900;margin-top:1mm;color:#231916;}
   .originlabel-print-origin{font-size:8.5pt;line-height:1.45;color:#595757;margin-top:1.5mm;white-space:pre-wrap;}
@@ -1064,15 +1067,20 @@ function PrintCard({ card, settings, designs }) {
   );
 }
 
-function OriginLabelPrintSheet({ item }) {
+function OriginLabelPrintSheet({ item, settings, designs }) {
   const images = item.images || [];
   const slots = Array.from({ length: Math.max(3, Math.min(6, images.length || 6)) }, (_, i) => images[i] || null);
   return (
     <section className="originlabel-print-sheet">
       <div className="originlabel-print-head">
-        <div className="originlabel-print-brand">HARE,HARE ORIGIN LABEL</div>
-        <div className="originlabel-print-name">{item.card.name}</div>
-        {item.card.origin && <div className="originlabel-print-origin">{item.card.origin}</div>}
+        <div className="originlabel-print-card">
+          <PrintCard card={item.card} settings={settings} designs={designs} />
+        </div>
+        <div className="originlabel-print-info">
+          <div className="originlabel-print-brand">HARE,HARE ORIGIN LABEL</div>
+          <div className="originlabel-print-name">{item.card.name}</div>
+          {item.card.origin && <div className="originlabel-print-origin">{item.card.origin}</div>}
+        </div>
       </div>
       <div className="originlabel-print-images">
         {slots.map((img, idx) => (
@@ -1086,12 +1094,19 @@ function OriginLabelPrintSheet({ item }) {
   );
 }
 
-function OriginLabelMiniSheet({ item }) {
+function OriginLabelMiniSheet({ item, settings, designs }) {
   return (
     <div className="originlabel-sheet-mini">
-      <div style={{ fontSize: 8, fontWeight: 900, color: "#BC9272", letterSpacing: ".08em" }}>HARE,HARE ORIGIN LABEL</div>
-      <div style={{ fontSize: 15, fontWeight: 900, marginTop: 4 }}>{item.card.name}</div>
-      {item.card.origin && <div style={{ fontSize: 8, color: "#595757", lineHeight: 1.45, marginTop: 4 }}>{item.card.origin}</div>}
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-start", borderBottom: "1px solid #231916", paddingBottom: 6 }}>
+        <div style={{ flexShrink: 0, maxWidth: 96, overflow: "hidden" }}>
+          <ShowCard card={item.card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.25} />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 8, fontWeight: 900, color: "#BC9272", letterSpacing: ".08em" }}>HARE,HARE ORIGIN LABEL</div>
+          <div style={{ fontSize: 15, fontWeight: 900, marginTop: 4 }}>{item.card.name}</div>
+          {item.card.origin && <div style={{ fontSize: 8, color: "#595757", lineHeight: 1.45, marginTop: 4 }}>{item.card.origin}</div>}
+        </div>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginTop: 10 }}>
         {Array.from({ length: 6 }, (_, idx) => {
           const img = (item.images || [])[idx];
@@ -1877,7 +1892,7 @@ function App() {
           {mainTab === "origin-label" ? (
             <div className="originlabel-print-grid">
               {originLabelItems.filter(item => item.images.length >= 3).map(item => (
-                <OriginLabelPrintSheet key={item.id} item={item} />
+                <OriginLabelPrintSheet key={item.id} item={item} settings={settings} designs={designs} />
               ))}
             </div>
           ) : (
@@ -2314,6 +2329,13 @@ function App() {
                         </div>
                       </div>
 
+                      <div className="originlabel-preview">
+                        <p className="originlabel-preview-title">기본 쇼카드</p>
+                        <div className="originlabel-showcard-preview">
+                          <ShowCard card={item.card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.42} />
+                        </div>
+                      </div>
+
                       {item.images.length > 0 && (
                         <div className="originlabel-images">
                           {item.images.map(img => (
@@ -2329,7 +2351,7 @@ function App() {
 
                       <div className="originlabel-preview">
                         <p className="originlabel-preview-title">A4 미리보기</p>
-                        <OriginLabelMiniSheet item={item} />
+                        <OriginLabelMiniSheet item={item} settings={settings} designs={designs} />
                       </div>
 
                       {item.images.length < 3 && (
