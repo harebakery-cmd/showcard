@@ -228,6 +228,13 @@
   .originlabel-main{overflow:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
   .originlabel-search{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);}
   .originlabel-search:focus{outline:none;border-color:var(--primary);}
+  .originlabel-register{border:1px solid var(--border);border-radius:6px;background:#fff;padding:12px;display:flex;flex-direction:column;gap:9px;}
+  .originlabel-register-title{font-size:12px;font-weight:900;margin:0;color:var(--foreground);}
+  .originlabel-register textarea{width:100%;min-height:74px;padding:9px 10px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);resize:vertical;}
+  .originlabel-register textarea:focus{outline:none;border-color:var(--primary);}
+  .originlabel-register-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .originlabel-library-preview{display:flex;flex-wrap:wrap;gap:5px;}
+  .originlabel-library-thumb{width:44px;height:34px;border:1px solid var(--border);border-radius:3px;object-fit:contain;background:#FFFDF8;}
   .originlabel-card-list{display:flex;flex-direction:column;gap:8px;}
   .originlabel-saved-card{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:5px;padding:10px;background:#fff;}
   .originlabel-saved-info{flex:1;min-width:0;}
@@ -259,7 +266,7 @@
   .originlabel-showcard-preview{display:flex;align-items:center;justify-content:center;background:#FFFDF8;border:1px solid var(--border);border-radius:4px;padding:10px;overflow:auto;}
   .originlabel-sheet-mini{width:210px;min-height:297px;background:#fff;border:1px solid #ddd;box-shadow:0 1px 4px rgba(28,16,7,.08);padding:12px 10px;box-sizing:border-box;}
   .originlabel-print-sheet{break-after:page;page-break-after:always;width:190mm;min-height:273mm;box-sizing:border-box;background:#fff;display:flex;flex-direction:column;gap:4mm;}
-  .originlabel-print-head{display:flex;gap:5mm;align-items:flex-start;border-bottom:.35mm solid #231916;padding-bottom:3mm;}
+  .originlabel-print-head{display:flex;align-items:center;justify-content:center;padding-bottom:3mm;}
   .originlabel-print-card{flex-shrink:0;}
   .originlabel-print-info{flex:1;min-width:0;}
   .originlabel-print-brand{font-size:8pt;font-weight:900;letter-spacing:.08em;color:#BC9272;}
@@ -269,7 +276,6 @@
   .originlabel-print-image{border:.25mm solid #d8c9bb;min-height:78mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;}
   .originlabel-print-image img{width:100%;height:100%;object-fit:contain;display:block;}
   .originlabel-print-image.empty{font-size:9pt;color:#c4b49a;}
-  .originlabel-print-note{font-size:7pt;color:#8a7a6a;text-align:right;margin-top:auto;}
   @media(max-width:980px){.originlabel-wrap{grid-template-columns:1fr;}.originlabel-side{border-right:none;border-bottom:1px solid var(--border);max-height:360px;}.originlabel-images{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
   /* manage tab */
@@ -593,7 +599,7 @@ function normalizeSavedCard(saved) {
   };
 }
 function normalizeOriginLabelText(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
+  return formatOriginText(String(value || "").trim().replace(/\s+/g, " "));
 }
 function stableHash(text) {
   let h1 = 0xdeadbeef;
@@ -610,6 +616,22 @@ function stableHash(text) {
 function getOriginLabelImageKey(card) {
   const origin = normalizeOriginLabelText(card && card.origin);
   return "k_" + stableHash(origin.toLowerCase());
+}
+function getOriginLabelImageKeysForOrigin(originText) {
+  const fullText = normalizeOriginLabelText(originText);
+  const keys = [];
+  const seen = new Set();
+  function addKey(text) {
+    const normalized = normalizeOriginLabelText(text);
+    if (!normalized) return;
+    const key = getOriginLabelImageKey({ origin: normalized });
+    if (seen.has(key)) return;
+    seen.add(key);
+    keys.push({ key, origin: normalized });
+  }
+  splitTopLevelList(fullText).forEach(addKey);
+  addKey(fullText);
+  return keys;
 }
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -1127,54 +1149,38 @@ function PrintCard({ card, settings, designs }) {
 }
 
 function OriginLabelPrintSheet({ item, settings, designs }) {
-  const images = item.images || [];
-  const slots = Array.from({ length: Math.max(3, Math.min(6, images.length || 6)) }, (_, i) => images[i] || null);
+  const images = (item.images || []).slice(0, 6);
   return (
     <section className="originlabel-print-sheet">
       <div className="originlabel-print-head">
         <div className="originlabel-print-card">
           <PrintCard card={item.card} settings={settings} designs={designs} />
         </div>
-        <div className="originlabel-print-info">
-          <div className="originlabel-print-brand">HARE,HARE ORIGIN LABEL</div>
-          <div className="originlabel-print-name">{item.card.name}</div>
-          {item.card.origin && <div className="originlabel-print-origin">{item.card.origin}</div>}
-        </div>
       </div>
       <div className="originlabel-print-images">
-        {slots.map((img, idx) => (
-          <div key={idx} className={"originlabel-print-image" + (!img ? " empty" : "")}>
-            {img ? <img src={img.src} alt="" /> : "이미지 추가"}
+        {images.map((img, idx) => (
+          <div key={img.id || idx} className="originlabel-print-image">
+            <img src={img.src} alt="" />
           </div>
         ))}
       </div>
-      <div className="originlabel-print-note">이미지 {images.length}장 / 최대 6장</div>
     </section>
   );
 }
 
 function OriginLabelMiniSheet({ item, settings, designs }) {
+  const images = (item.images || []).slice(0, 6);
   return (
     <div className="originlabel-sheet-mini">
-      <div style={{ display: "flex", gap: 6, alignItems: "flex-start", borderBottom: "1px solid #231916", paddingBottom: 6 }}>
-        <div style={{ flexShrink: 0, maxWidth: 96, overflow: "hidden" }}>
-          <ShowCard card={item.card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.25} />
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 8, fontWeight: 900, color: "#BC9272", letterSpacing: ".08em" }}>HARE,HARE ORIGIN LABEL</div>
-          <div style={{ fontSize: 15, fontWeight: 900, marginTop: 4 }}>{item.card.name}</div>
-          {item.card.origin && <div style={{ fontSize: 8, color: "#595757", lineHeight: 1.45, marginTop: 4 }}>{item.card.origin}</div>}
-        </div>
+      <div style={{ display: "flex", justifyContent: "center", paddingBottom: 6 }}>
+        <ShowCard card={item.card} settings={settings} designs={designs} scale={SCREEN_SCALE * 0.25} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginTop: 10 }}>
-        {Array.from({ length: 6 }, (_, idx) => {
-          const img = (item.images || [])[idx];
-          return (
-            <div key={idx} style={{ height: 58, border: "1px solid #d8c9bb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", color: "#c4b49a", fontSize: 8 }}>
-              {img ? <img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : "이미지"}
-            </div>
-          );
-        })}
+        {images.map((img, idx) => (
+          <div key={img.id || idx} style={{ height: 58, border: "1px solid #d8c9bb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1627,6 +1633,10 @@ function App() {
   const [savingCard, setSavingCard] = useState(false);
   const [originLabelItems, setOriginLabelItems] = useState([]);
   const [originLabelSearch, setOriginLabelSearch] = useState("");
+  const [originLabelRegisterText, setOriginLabelRegisterText] = useState("");
+  const [originLabelRegisterImages, setOriginLabelRegisterImages] = useState([]);
+  const [originLabelRegisterLoading, setOriginLabelRegisterLoading] = useState(false);
+  const [originLabelRegisterError, setOriginLabelRegisterError] = useState(null);
 
   // Load the shared manage-tab settings + uploaded designs from Firebase once
   // on startup (falls back to the built-in defaults if nothing saved yet).
@@ -1726,8 +1736,22 @@ function App() {
     setRightTab("preview");
   }
 
-  function addOriginLabelCard(saved) {
-    const card = normalizeSavedCard(saved);
+  function productToOriginLabelCard(product) {
+    return {
+      id: "product_" + getOriginLabelImageKey({ origin: originItemsToText(product.origin) }) + "_" + stableHash(product.name || ""),
+      type: "standard",
+      name: product.name || "",
+      description: "",
+      origin: formatOriginText(originItemsToText(product.origin)),
+      price: formatPriceText(product.price || ""),
+      allergens: Array.isArray(product.allergens) ? product.allergens : [],
+      message: "",
+      discountPercent: 0,
+    };
+  }
+
+  function addOriginLabelProduct(product) {
+    const card = productToOriginLabelCard(product);
     if (originLabelItems.some(item => item.card.id === card.id)) return;
     const itemId = uid();
     setOriginLabelItems(prev => [...prev, { id: itemId, card, images: [], imageLoading: true, imageError: null }]);
@@ -1740,73 +1764,92 @@ function App() {
   }
 
   async function loadOriginLabelImages(itemId, card) {
-    const imageKey = getOriginLabelImageKey(card);
+    const imageSources = getOriginLabelImageKeysForOrigin(card && card.origin);
     try {
-      const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`);
-      if (!res.ok) throw new Error("load failed");
-      const data = await res.json();
-      const images = Array.isArray(data && data.images) ? data.images.slice(0, 6) : [];
+      const results = await Promise.all(imageSources.map(async source => {
+        const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${source.key}.json`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data && data.images) ? data.images : [];
+      }));
+      const seen = new Set();
+      const images = results.flat().filter(img => {
+        const key = img && (img.src || img.id);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 6);
       setOriginLabelItems(prev => prev.map(item =>
-        item.id === itemId ? { ...item, imageKey, images: (item.images || []).length ? item.images : images, imageLoading: false, imageError: null } : item
+        item.id === itemId ? { ...item, imageSources, images: (item.images || []).length ? item.images : images, imageLoading: false, imageError: null } : item
       ));
     } catch (err) {
       console.error(err);
       setOriginLabelItems(prev => prev.map(item =>
-        item.id === itemId ? { ...item, imageKey, imageLoading: false, imageError: "이미지를 불러오지 못했습니다" } : item
+        item.id === itemId ? { ...item, imageSources, imageLoading: false, imageError: "이미지를 불러오지 못했습니다" } : item
       ));
     }
   }
 
-  function saveOriginLabelImageLibrary(card, images) {
-    const imageKey = getOriginLabelImageKey(card);
-    const payload = {
-      name: normalizeOriginLabelText(card && card.name),
-      origin: normalizeOriginLabelText(card && card.origin),
-      images: (images || []).slice(0, 6),
-      updatedAt: Date.now(),
-    };
-    fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`, {
+  async function loadOriginLabelRegisterLibrary(text) {
+    const originText = normalizeOriginLabelText(text);
+    setOriginLabelRegisterText(originText);
+    setOriginLabelRegisterError(null);
+    if (!originText) {
+      setOriginLabelRegisterImages([]);
+      return;
+    }
+    setOriginLabelRegisterLoading(true);
+    try {
+      const imageKey = getOriginLabelImageKey({ origin: originText });
+      const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`);
+      if (!res.ok) throw new Error("load failed");
+      const data = await res.json();
+      setOriginLabelRegisterImages(Array.isArray(data && data.images) ? data.images.slice(0, 6) : []);
+    } catch (err) {
+      console.error(err);
+      setOriginLabelRegisterError("자료를 불러오지 못했습니다");
+    } finally {
+      setOriginLabelRegisterLoading(false);
+    }
+  }
+
+  function saveOriginLabelRegisterLibrary(images) {
+    const originText = normalizeOriginLabelText(originLabelRegisterText);
+    if (!originText) return;
+    const payload = { origin: originText, images: (images || []).slice(0, 6), updatedAt: Date.now() };
+    fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${getOriginLabelImageKey({ origin: originText })}.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).catch(err => {
       console.error(err);
-      setOriginLabelItems(prev => prev.map(item =>
-        getOriginLabelImageKey(item.card) === imageKey ? { ...item, imageError: "이미지 저장에 실패했습니다" } : item
-      ));
+      setOriginLabelRegisterError("자료 저장에 실패했습니다");
     });
   }
 
-  function addOriginLabelImages(itemId, files) {
+  function addOriginLabelRegisterImages(files) {
+    const originText = normalizeOriginLabelText(originLabelRegisterText);
+    if (!originText) {
+      setOriginLabelRegisterError("먼저 원산지 텍스트를 입력해주세요");
+      return;
+    }
     const selected = Array.from(files || []).slice(0, 6);
     if (selected.length === 0) return;
+    setOriginLabelRegisterError(null);
     Promise.all(selected.map(fileToOriginLabelImage)).then(images => {
-      const currentItem = originLabelItems.find(item => item.id === itemId);
-      if (!currentItem) return;
-      const nextImages = [...(currentItem.images || []), ...images].slice(0, 6);
-      setOriginLabelItems(prev => prev.map(item => {
-        if (item.id !== itemId) return item;
-        return { ...item, images: nextImages, imageError: null };
-      }));
-      saveOriginLabelImageLibrary(currentItem.card, nextImages);
+      const nextImages = [...originLabelRegisterImages, ...images].slice(0, 6);
+      setOriginLabelRegisterImages(nextImages);
+      saveOriginLabelRegisterLibrary(nextImages);
     }).catch(err => {
       console.error(err);
-      setOriginLabelItems(prev => prev.map(item =>
-        item.id === itemId ? { ...item, imageError: "이미지를 읽지 못했습니다" } : item
-      ));
+      setOriginLabelRegisterError("이미지를 읽지 못했습니다");
     });
   }
 
-  function removeOriginLabelImage(itemId, imageId) {
-    const currentItem = originLabelItems.find(item => item.id === itemId);
-    if (!currentItem) return;
-    const nextImages = (currentItem.images || []).filter(img => img.id !== imageId);
-    setOriginLabelItems(prev => prev.map(item =>
-      item.id === itemId
-        ? { ...item, images: nextImages, imageError: null }
-        : item
-    ));
-    saveOriginLabelImageLibrary(currentItem.card, nextImages);
+  function removeOriginLabelRegisterImage(imageId) {
+    const nextImages = originLabelRegisterImages.filter(img => img.id !== imageId);
+    setOriginLabelRegisterImages(nextImages);
+    saveOriginLabelRegisterLibrary(nextImages);
   }
 
   const [products, setProducts] = useState([]);
@@ -1954,16 +1997,16 @@ function App() {
     return products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
   }, [products, dbSearch]);
 
-  const filteredOriginLabelCards = useMemo(() => {
+  const filteredOriginLabelProducts = useMemo(() => {
     const q = originLabelSearch.trim().toLowerCase();
-    if (!q) return savedCards;
-    return savedCards.filter(card =>
-      card.name.toLowerCase().includes(q) ||
-      String(card.origin || "").toLowerCase().includes(q)
+    if (!q) return products;
+    return products.filter(product =>
+      String(product.name || "").toLowerCase().includes(q) ||
+      String(originItemsToText(product.origin) || "").toLowerCase().includes(q)
     );
-  }, [savedCards, originLabelSearch]);
+  }, [products, originLabelSearch]);
 
-  const originLabelPrintableCount = originLabelItems.filter(item => (item.images || []).length >= 3).length;
+  const originLabelPrintableCount = originLabelItems.filter(item => (item.images || []).length > 0).length;
   const printDisabled = mainTab === "origin-label" ? originLabelPrintableCount === 0 : queue.length === 0;
   const printLabel = mainTab === "origin-label"
     ? `원라벨 A4 저장${originLabelPrintableCount > 0 ? ` (${originLabelPrintableCount}장)` : ""}`
@@ -1999,7 +2042,7 @@ function App() {
         <div id="print-area">
           {mainTab === "origin-label" ? (
             <div className="originlabel-print-grid">
-              {originLabelItems.filter(item => (item.images || []).length >= 3).map(item => (
+              {originLabelItems.filter(item => (item.images || []).length > 0).map(item => (
                 <OriginLabelPrintSheet key={item.id} item={item} settings={settings} designs={designs} />
               ))}
             </div>
@@ -2327,9 +2370,6 @@ function App() {
                               <button className="saved-load-btn" onClick={() => addSavedToQueue(card)} title="인쇄 목록에 추가">
                                 <IconPrinter size={12} /> 인쇄 목록에
                               </button>
-                              <button className="btn-ghost-sm" onClick={() => addOriginLabelCard(card)} title="원라벨 목록에 추가">
-                                <IconImage size={11} /> 원라벨
-                              </button>
                               <button className="btn-ghost-sm" onClick={() => loadSavedToForm(card)} title="폼에 불러와서 수정">
                                 <IconRefresh size={11} /> 폼에 불러오기
                               </button>
@@ -2351,31 +2391,74 @@ function App() {
         {mainTab === "origin-label" && (
           <div className="originlabel-wrap">
             <aside className="originlabel-side">
+              <section className="originlabel-register">
+                <p className="originlabel-register-title">원산지 이미지 자료 등록</p>
+                <textarea
+                  value={originLabelRegisterText}
+                  onChange={(e) => setOriginLabelRegisterText(e.target.value)}
+                  placeholder="예) 밀가루(밀:미국,캐나다산)"
+                />
+                <div className="originlabel-register-actions">
+                  <button type="button" className="btn-reset" onClick={() => loadOriginLabelRegisterLibrary(originLabelRegisterText)}>
+                    자료 확인
+                  </button>
+                  <label className="originlabel-upload">
+                    <IconUpload size={11} /> 이미지 등록
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => { addOriginLabelRegisterImages(e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                  <span className="originlabel-count">{originLabelRegisterImages.length}/6장</span>
+                </div>
+                {originLabelRegisterLoading && <p className="field-hint">자료를 불러오는 중입니다.</p>}
+                {originLabelRegisterError && <p className="field-hint" style={{ color: "#c0392b" }}>{originLabelRegisterError}</p>}
+                {originLabelRegisterImages.length > 0 && (
+                  <div className="originlabel-library-preview">
+                    {originLabelRegisterImages.map(img => (
+                      <button key={img.id} type="button" className="originlabel-image" style={{ width: 54, height: 42, aspectRatio: "auto", padding: 0 }} onClick={() => removeOriginLabelRegisterImage(img.id)} title="클릭하면 삭제됩니다">
+                        <img src={img.src} alt={img.name} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               <section>
-                <span className="label-eyebrow">저장된 카드 선택</span>
+                <span className="label-eyebrow">제품명 검색</span>
                 <input
                   className="originlabel-search"
                   value={originLabelSearch}
                   onChange={(e) => setOriginLabelSearch(e.target.value)}
-                  placeholder="제품명 또는 원산지 검색"
+                  placeholder="제품명 또는 원산지 텍스트 검색"
                 />
               </section>
 
-              {savedCardsLoading ? (
+              {productsLoading ? (
                 <div className="queue-empty">
                   <IconRefresh size={24} className="spin" style={{ opacity: .3 }} />
                   <p className="t1">불러오는 중...</p>
                 </div>
-              ) : filteredOriginLabelCards.length === 0 ? (
+              ) : productsError ? (
                 <div className="originlabel-empty">
                   <div>
-                    <p className="t1">저장된 카드가 없습니다</p>
-                    <p className="t2">쇼카드 출력 탭에서 카드를 저장하면 여기에 표시됩니다.</p>
+                    <p className="t1">제품 DB를 불러오지 못했습니다</p>
+                    <p className="t2">{productsError}</p>
+                  </div>
+                </div>
+              ) : filteredOriginLabelProducts.length === 0 ? (
+                <div className="originlabel-empty">
+                  <div>
+                    <p className="t1">검색된 제품이 없습니다</p>
+                    <p className="t2">제품명 또는 원산지 텍스트를 다시 확인해주세요.</p>
                   </div>
                 </div>
               ) : (
                 <div className="originlabel-card-list">
-                  {filteredOriginLabelCards.map(card => {
+                  {filteredOriginLabelProducts.map(product => {
+                    const card = productToOriginLabelCard(product);
                     const alreadyAdded = originLabelItems.some(item => item.card.id === card.id);
                     return (
                       <div key={card.id} className="originlabel-saved-card">
@@ -2383,7 +2466,7 @@ function App() {
                           <p className="originlabel-saved-name">{card.name}</p>
                           <p className="originlabel-saved-meta">{card.origin || "원산지 없음"}</p>
                         </div>
-                        <button className="originlabel-add-btn" disabled={alreadyAdded} onClick={() => addOriginLabelCard(card)}>
+                        <button className="originlabel-add-btn" disabled={alreadyAdded} onClick={() => addOriginLabelProduct(product)}>
                           <IconPlus size={10} /> {alreadyAdded ? "추가됨" : "추가"}
                         </button>
                       </div>
@@ -2397,7 +2480,7 @@ function App() {
               <div className="originlabel-toolbar">
                 <div>
                   <p className="originlabel-title">원라벨 목록</p>
-                  <p className="originlabel-sub">저장된 카드에 원산지 이미지 3~6장을 붙여 A4로 저장합니다.</p>
+                  <p className="originlabel-sub">제품 DB에서 선택한 쇼카드에 같은 원산지 텍스트의 이미지 자료를 붙여 A4로 저장합니다.</p>
                 </div>
                 {originLabelItems.length > 0 && (
                   <button className="queue-clear" onClick={() => setOriginLabelItems([])}>전체 삭제</button>
@@ -2408,7 +2491,7 @@ function App() {
                 <div className="originlabel-empty">
                   <div>
                     <p className="t1">원라벨 목록이 비어있습니다</p>
-                    <p className="t2">왼쪽 저장된 카드에서 제품을 추가한 뒤 원산지 이미지를 올려주세요.</p>
+                    <p className="t2">왼쪽에서 제품을 검색해 추가하거나, 원산지 이미지 자료를 먼저 등록해주세요.</p>
                   </div>
                 </div>
               ) : (
@@ -2422,15 +2505,6 @@ function App() {
                         </div>
                         <div className="originlabel-actions">
                           <span className="originlabel-count">{(item.images || []).length}/6장</span>
-                          <label className="originlabel-upload">
-                            <IconUpload size={11} /> 이미지 추가
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => { addOriginLabelImages(item.id, e.target.files); e.target.value = ""; }}
-                            />
-                          </label>
                           <button className="queue-del" onClick={() => removeOriginLabelItem(item.id)}>
                             <IconTrash size={13} />
                           </button>
@@ -2457,9 +2531,6 @@ function App() {
                           {(item.images || []).map(img => (
                             <div key={img.id} className="originlabel-image">
                               <img src={img.src} alt={img.name} />
-                              <button onClick={() => removeOriginLabelImage(item.id, img.id)} title="이미지 삭제">
-                                <IconX size={11} />
-                              </button>
                             </div>
                           ))}
                         </div>
@@ -2470,8 +2541,8 @@ function App() {
                         <OriginLabelMiniSheet item={item} settings={settings} designs={designs} />
                       </div>
 
-                      {(item.images || []).length < 3 && (
-                        <p className="field-hint">A4 저장에는 이미지가 최소 3장 필요합니다.</p>
+                      {(item.images || []).length === 0 && !item.imageLoading && (
+                        <p className="field-hint">같은 원산지 텍스트로 등록된 이미지 자료가 아직 없습니다.</p>
                       )}
                     </div>
                   ))}
