@@ -222,6 +222,53 @@
     font-weight:800;color:#fff;background:var(--brand-orange);border:none;white-space:nowrap;transition:all .15s;}
   .saved-load-btn:hover{opacity:.9;}
 
+  /* origin label tab */
+  .originlabel-wrap{flex:1;display:grid;grid-template-columns:360px 1fr;min-height:0;background:var(--background);}
+  .originlabel-side{border-right:1px solid var(--border);background:var(--card);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:16px;}
+  .originlabel-main{overflow:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
+  .originlabel-search{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);}
+  .originlabel-search:focus{outline:none;border-color:var(--primary);}
+  .originlabel-card-list{display:flex;flex-direction:column;gap:8px;}
+  .originlabel-saved-card{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:5px;padding:10px;background:#fff;}
+  .originlabel-saved-info{flex:1;min-width:0;}
+  .originlabel-saved-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .originlabel-saved-meta{font-size:10px;color:var(--muted-foreground);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .originlabel-add-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 9px;border-radius:4px;border:none;background:var(--primary);color:#fff;font-size:10px;font-weight:800;white-space:nowrap;}
+  .originlabel-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .originlabel-title{font-size:14px;font-weight:900;margin:0;}
+  .originlabel-sub{font-size:11px;color:var(--muted-foreground);margin-top:3px;}
+  .originlabel-list{display:flex;flex-direction:column;gap:12px;}
+  .originlabel-item{background:#fff;border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:12px;}
+  .originlabel-item-head{display:flex;align-items:flex-start;gap:12px;}
+  .originlabel-item-info{flex:1;min-width:0;}
+  .originlabel-item-name{font-size:13px;font-weight:900;margin:0;}
+  .originlabel-item-origin{font-size:10.5px;color:#5a4a3a;line-height:1.5;margin-top:3px;}
+  .originlabel-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .originlabel-upload{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:4px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:10.5px;font-weight:800;white-space:nowrap;}
+  .originlabel-upload input{display:none;}
+  .originlabel-count{font-size:10px;font-weight:800;color:#2C8B86;background:#EAF7F6;border-radius:20px;padding:3px 8px;}
+  .originlabel-images{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+  .originlabel-image{position:relative;aspect-ratio:4/3;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#FFFDF8;}
+  .originlabel-image img{width:100%;height:100%;object-fit:contain;display:block;}
+  .originlabel-image button{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(35,25,22,.82);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;}
+  .originlabel-empty{min-height:300px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted-foreground);padding:24px;}
+  .originlabel-empty .t1{font-size:14px;font-weight:800;margin:0 0 4px;}
+  .originlabel-empty .t2{font-size:12px;margin:0;line-height:1.5;}
+  .originlabel-preview{background:#fff;border:1px solid var(--border);border-radius:5px;padding:10px;}
+  .originlabel-preview-title{font-size:11px;font-weight:800;margin:0 0 8px;color:#5a4a3a;}
+  .originlabel-sheet-mini{width:210px;min-height:297px;background:#fff;border:1px solid #ddd;box-shadow:0 1px 4px rgba(28,16,7,.08);padding:12px 10px;box-sizing:border-box;}
+  .originlabel-print-sheet{break-after:page;page-break-after:always;width:190mm;min-height:273mm;box-sizing:border-box;background:#fff;display:flex;flex-direction:column;gap:4mm;}
+  .originlabel-print-head{border-bottom:.35mm solid #231916;padding-bottom:3mm;}
+  .originlabel-print-brand{font-size:8pt;font-weight:900;letter-spacing:.08em;color:#BC9272;}
+  .originlabel-print-name{font-size:18pt;font-weight:900;margin-top:1mm;color:#231916;}
+  .originlabel-print-origin{font-size:8.5pt;line-height:1.45;color:#595757;margin-top:1.5mm;white-space:pre-wrap;}
+  .originlabel-print-images{display:grid;grid-template-columns:repeat(2,1fr);gap:4mm;flex:1;align-content:start;}
+  .originlabel-print-image{border:.25mm solid #d8c9bb;min-height:78mm;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;}
+  .originlabel-print-image img{width:100%;height:100%;object-fit:contain;display:block;}
+  .originlabel-print-image.empty{font-size:9pt;color:#c4b49a;}
+  .originlabel-print-note{font-size:7pt;color:#8a7a6a;text-align:right;margin-top:auto;}
+  @media(max-width:980px){.originlabel-wrap{grid-template-columns:1fr;}.originlabel-side{border-right:none;border-bottom:1px solid var(--border);max-height:360px;}.originlabel-images{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
   /* manage tab */
   .manage-wrap{flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:22px;}
   .manage-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
@@ -354,8 +401,10 @@
     body > *{display:none !important;}
     #print-root{display:block !important;}
     #print-area{display:block !important;}
-    #print-area{width:210mm;min-height:297mm;padding:0;box-sizing:border-box;background:#fff;}
+    #print-area{width:210mm;min-height:297mm;padding:12mm 10mm;box-sizing:border-box;background:#fff;}
     .print-grid{display:flex;flex-wrap:wrap;gap:0;align-items:flex-start;align-content:flex-start;}
+    .originlabel-print-grid{display:flex;flex-direction:column;gap:0;}
+    .originlabel-print-sheet:last-child{break-after:auto;page-break-after:auto;}
     @page{size:A4 portrait;margin:0;}
   }
 </style>
@@ -1015,6 +1064,48 @@ function PrintCard({ card, settings, designs }) {
   );
 }
 
+function OriginLabelPrintSheet({ item }) {
+  const images = item.images || [];
+  const slots = Array.from({ length: Math.max(3, Math.min(6, images.length || 6)) }, (_, i) => images[i] || null);
+  return (
+    <section className="originlabel-print-sheet">
+      <div className="originlabel-print-head">
+        <div className="originlabel-print-brand">HARE,HARE ORIGIN LABEL</div>
+        <div className="originlabel-print-name">{item.card.name}</div>
+        {item.card.origin && <div className="originlabel-print-origin">{item.card.origin}</div>}
+      </div>
+      <div className="originlabel-print-images">
+        {slots.map((img, idx) => (
+          <div key={idx} className={"originlabel-print-image" + (!img ? " empty" : "")}>
+            {img ? <img src={img.src} alt="" /> : "이미지 추가"}
+          </div>
+        ))}
+      </div>
+      <div className="originlabel-print-note">이미지 {images.length}장 / 최대 6장</div>
+    </section>
+  );
+}
+
+function OriginLabelMiniSheet({ item }) {
+  return (
+    <div className="originlabel-sheet-mini">
+      <div style={{ fontSize: 8, fontWeight: 900, color: "#BC9272", letterSpacing: ".08em" }}>HARE,HARE ORIGIN LABEL</div>
+      <div style={{ fontSize: 15, fontWeight: 900, marginTop: 4 }}>{item.card.name}</div>
+      {item.card.origin && <div style={{ fontSize: 8, color: "#595757", lineHeight: 1.45, marginTop: 4 }}>{item.card.origin}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginTop: 10 }}>
+        {Array.from({ length: 6 }, (_, idx) => {
+          const img = (item.images || [])[idx];
+          return (
+            <div key={idx} style={{ height: 58, border: "1px solid #d8c9bb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", color: "#c4b49a", fontSize: 8 }}>
+              {img ? <img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : "이미지"}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════ Manage tab ═══════════════════════ */
 
 function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDesigns }) {
@@ -1460,6 +1551,8 @@ function App() {
   const [savedCards, setSavedCards] = useState([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [savingCard, setSavingCard] = useState(false);
+  const [originLabelItems, setOriginLabelItems] = useState([]);
+  const [originLabelSearch, setOriginLabelSearch] = useState("");
 
   // Load the shared manage-tab settings + uploaded designs from Firebase once
   // on startup (falls back to the built-in defaults if nothing saved yet).
@@ -1557,6 +1650,40 @@ function App() {
     setMessage(card.message); setDiscountPercent(card.discountPercent ? String(card.discountPercent) : "");
     setDiscountOpen(!!card.discountPercent);
     setRightTab("preview");
+  }
+
+  function addOriginLabelCard(saved) {
+    const card = normalizeSavedCard(saved);
+    setOriginLabelItems(prev => {
+      if (prev.some(item => item.card.id === card.id)) return prev;
+      return [...prev, { id: uid(), card, images: [] }];
+    });
+    setMainTab("origin-label");
+  }
+
+  function removeOriginLabelItem(id) {
+    setOriginLabelItems(prev => prev.filter(item => item.id !== id));
+  }
+
+  function addOriginLabelImages(itemId, files) {
+    const selected = Array.from(files || []).slice(0, 6);
+    if (selected.length === 0) return;
+    Promise.all(selected.map(file => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ id: uid(), name: file.name, src: reader.result });
+      reader.readAsDataURL(file);
+    }))).then(images => {
+      setOriginLabelItems(prev => prev.map(item => {
+        if (item.id !== itemId) return item;
+        return { ...item, images: [...item.images, ...images].slice(0, 6) };
+      }));
+    });
+  }
+
+  function removeOriginLabelImage(itemId, imageId) {
+    setOriginLabelItems(prev => prev.map(item =>
+      item.id === itemId ? { ...item, images: item.images.filter(img => img.id !== imageId) } : item
+    ));
   }
 
   const [products, setProducts] = useState([]);
@@ -1704,6 +1831,21 @@ function App() {
     return products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
   }, [products, dbSearch]);
 
+  const filteredOriginLabelCards = useMemo(() => {
+    const q = originLabelSearch.trim().toLowerCase();
+    if (!q) return savedCards;
+    return savedCards.filter(card =>
+      card.name.toLowerCase().includes(q) ||
+      String(card.origin || "").toLowerCase().includes(q)
+    );
+  }, [savedCards, originLabelSearch]);
+
+  const originLabelPrintableCount = originLabelItems.filter(item => item.images.length >= 3).length;
+  const printDisabled = mainTab === "origin-label" ? originLabelPrintableCount === 0 : queue.length === 0;
+  const printLabel = mainTab === "origin-label"
+    ? `원라벨 A4 저장${originLabelPrintableCount > 0 ? ` (${originLabelPrintableCount}장)` : ""}`
+    : `A4 인쇄${queue.length > 0 ? ` (${queue.length}장)` : ""}`;
+
   function toggleAllergen(a) {
     setAllergens(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
   }
@@ -1732,9 +1874,17 @@ function App() {
     <div className="app">
       {createPortal(
         <div id="print-area">
-          <div className="print-grid">
-            {queue.map(card => <PrintCard key={card.id} card={card} settings={settings} designs={designs} />)}
-          </div>
+          {mainTab === "origin-label" ? (
+            <div className="originlabel-print-grid">
+              {originLabelItems.filter(item => item.images.length >= 3).map(item => (
+                <OriginLabelPrintSheet key={item.id} item={item} />
+              ))}
+            </div>
+          ) : (
+            <div className="print-grid">
+              {queue.map(card => <PrintCard key={card.id} card={card} settings={settings} designs={designs} />)}
+            </div>
+          )}
         </div>,
         document.getElementById("print-root")
       )}
@@ -1752,13 +1902,16 @@ function App() {
             <button className={"maintab-btn" + (mainTab === "print" ? " active" : "")} onClick={() => setMainTab("print")}>
               <IconPrinter size={12} /> 쇼카드 출력
             </button>
+            <button className={"maintab-btn" + (mainTab === "origin-label" ? " active" : "")} onClick={() => setMainTab("origin-label")}>
+              <IconImage size={12} /> 원라벨
+            </button>
             <button className={"maintab-btn" + (mainTab === "manage" ? " active" : "")} onClick={() => setMainTab("manage")}>
               <IconSettings size={12} /> 관리
             </button>
           </div>
         </div>
-        <button className="print-btn" disabled={queue.length === 0} onClick={() => window.print()}>
-          <IconPrinter size={13} /> A4 인쇄{queue.length > 0 ? ` (${queue.length}장)` : ""}
+        <button className="print-btn" disabled={printDisabled} onClick={() => window.print()}>
+          <IconPrinter size={13} /> {printLabel}
         </button>
       </header>
 
@@ -2051,6 +2204,9 @@ function App() {
                               <button className="saved-load-btn" onClick={() => addSavedToQueue(card)} title="인쇄 목록에 추가">
                                 <IconPrinter size={12} /> 인쇄 목록에
                               </button>
+                              <button className="btn-ghost-sm" onClick={() => addOriginLabelCard(card)} title="원라벨 목록에 추가">
+                                <IconImage size={11} /> 원라벨
+                              </button>
                               <button className="btn-ghost-sm" onClick={() => loadSavedToForm(card)} title="폼에 불러와서 수정">
                                 <IconRefresh size={11} /> 폼에 불러오기
                               </button>
@@ -2067,6 +2223,124 @@ function App() {
               )}
             </main>
           </React.Fragment>
+        )}
+
+        {mainTab === "origin-label" && (
+          <div className="originlabel-wrap">
+            <aside className="originlabel-side">
+              <section>
+                <span className="label-eyebrow">저장된 카드 선택</span>
+                <input
+                  className="originlabel-search"
+                  value={originLabelSearch}
+                  onChange={(e) => setOriginLabelSearch(e.target.value)}
+                  placeholder="제품명 또는 원산지 검색"
+                />
+              </section>
+
+              {savedCardsLoading ? (
+                <div className="queue-empty">
+                  <IconRefresh size={24} className="spin" style={{ opacity: .3 }} />
+                  <p className="t1">불러오는 중...</p>
+                </div>
+              ) : filteredOriginLabelCards.length === 0 ? (
+                <div className="originlabel-empty">
+                  <div>
+                    <p className="t1">저장된 카드가 없습니다</p>
+                    <p className="t2">쇼카드 출력 탭에서 카드를 저장하면 여기에 표시됩니다.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="originlabel-card-list">
+                  {filteredOriginLabelCards.map(card => {
+                    const alreadyAdded = originLabelItems.some(item => item.card.id === card.id);
+                    return (
+                      <div key={card.id} className="originlabel-saved-card">
+                        <div className="originlabel-saved-info">
+                          <p className="originlabel-saved-name">{card.name}</p>
+                          <p className="originlabel-saved-meta">{card.origin || "원산지 없음"}</p>
+                        </div>
+                        <button className="originlabel-add-btn" disabled={alreadyAdded} onClick={() => addOriginLabelCard(card)}>
+                          <IconPlus size={10} /> {alreadyAdded ? "추가됨" : "추가"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </aside>
+
+            <main className="originlabel-main">
+              <div className="originlabel-toolbar">
+                <div>
+                  <p className="originlabel-title">원라벨 목록</p>
+                  <p className="originlabel-sub">저장된 카드에 원산지 이미지 3~6장을 붙여 A4로 저장합니다.</p>
+                </div>
+                {originLabelItems.length > 0 && (
+                  <button className="queue-clear" onClick={() => setOriginLabelItems([])}>전체 삭제</button>
+                )}
+              </div>
+
+              {originLabelItems.length === 0 ? (
+                <div className="originlabel-empty">
+                  <div>
+                    <p className="t1">원라벨 목록이 비어있습니다</p>
+                    <p className="t2">왼쪽 저장된 카드에서 제품을 추가한 뒤 원산지 이미지를 올려주세요.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="originlabel-list">
+                  {originLabelItems.map(item => (
+                    <div key={item.id} className="originlabel-item">
+                      <div className="originlabel-item-head">
+                        <div className="originlabel-item-info">
+                          <p className="originlabel-item-name">{item.card.name}</p>
+                          <p className="originlabel-item-origin">{item.card.origin || "원산지 없음"}</p>
+                        </div>
+                        <div className="originlabel-actions">
+                          <span className="originlabel-count">{item.images.length}/6장</span>
+                          <label className="originlabel-upload">
+                            <IconUpload size={11} /> 이미지 추가
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => { addOriginLabelImages(item.id, e.target.files); e.target.value = ""; }}
+                            />
+                          </label>
+                          <button className="queue-del" onClick={() => removeOriginLabelItem(item.id)}>
+                            <IconTrash size={13} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {item.images.length > 0 && (
+                        <div className="originlabel-images">
+                          {item.images.map(img => (
+                            <div key={img.id} className="originlabel-image">
+                              <img src={img.src} alt={img.name} />
+                              <button onClick={() => removeOriginLabelImage(item.id, img.id)} title="이미지 삭제">
+                                <IconX size={11} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="originlabel-preview">
+                        <p className="originlabel-preview-title">A4 미리보기</p>
+                        <OriginLabelMiniSheet item={item} />
+                      </div>
+
+                      {item.images.length < 3 && (
+                        <p className="field-hint">A4 저장에는 이미지가 최소 3장 필요합니다.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </main>
+          </div>
         )}
 
         {mainTab === "manage" && (
