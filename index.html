@@ -436,6 +436,7 @@ const DESIGNS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.fir
 // Reusable saved show-card entries (제품명/설명/원산지/가격/알레르기 etc. as a set),
 // listed in the "저장된 카드" tab and loadable straight into the print queue.
 const SAVED_CARDS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
+const ORIGIN_LABEL_IMAGES_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_images";
 
 // Matches the allergen field keys used by https://harebakery-cmd.github.io/hare-allergen/
 // so products loaded from that source map 1:1 without translation.
@@ -590,6 +591,64 @@ function normalizeSavedCard(saved) {
     message: saved.message || "",
     discountPercent: Number(saved.discountPercent) || 0,
   };
+}
+function normalizeOriginLabelText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+function stableHash(text) {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+function getOriginLabelImageKey(card) {
+  const origin = normalizeOriginLabelText(card && card.origin);
+  return "k_" + stableHash(origin.toLowerCase());
+}
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+async function fileToOriginLabelImage(file) {
+  const original = await readFileAsDataUrl(file);
+  if (/image\/svg\+xml/i.test(file.type) || /\.svg$/i.test(file.name)) {
+    return { id: uid(), name: file.name, src: original };
+  }
+  try {
+    const img = await loadImageElement(original);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    const w = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    const h = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return { id: uid(), name: file.name, src: canvas.toDataURL("image/jpeg", 0.84) };
+  } catch (err) {
+    return { id: uid(), name: file.name, src: original };
+  }
 }
 // 신제품 등록 시스템의 원산지 항목 표시용 (신규 병합 포맷 {text} / 구 포맷 {name,country} 모두 지원)
 function originItemDisplay(o) {
@@ -1669,36 +1728,85 @@ function App() {
 
   function addOriginLabelCard(saved) {
     const card = normalizeSavedCard(saved);
-    setOriginLabelItems(prev => {
-      if (prev.some(item => item.card.id === card.id)) return prev;
-      return [...prev, { id: uid(), card, images: [] }];
-    });
+    if (originLabelItems.some(item => item.card.id === card.id)) return;
+    const itemId = uid();
+    setOriginLabelItems(prev => [...prev, { id: itemId, card, images: [], imageLoading: true, imageError: null }]);
     setMainTab("origin-label");
+    loadOriginLabelImages(itemId, card);
   }
 
   function removeOriginLabelItem(id) {
     setOriginLabelItems(prev => prev.filter(item => item.id !== id));
   }
 
+  async function loadOriginLabelImages(itemId, card) {
+    const imageKey = getOriginLabelImageKey(card);
+    try {
+      const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`);
+      if (!res.ok) throw new Error("load failed");
+      const data = await res.json();
+      const images = Array.isArray(data && data.images) ? data.images.slice(0, 6) : [];
+      setOriginLabelItems(prev => prev.map(item =>
+        item.id === itemId ? { ...item, imageKey, images: (item.images || []).length ? item.images : images, imageLoading: false, imageError: null } : item
+      ));
+    } catch (err) {
+      console.error(err);
+      setOriginLabelItems(prev => prev.map(item =>
+        item.id === itemId ? { ...item, imageKey, imageLoading: false, imageError: "이미지를 불러오지 못했습니다" } : item
+      ));
+    }
+  }
+
+  function saveOriginLabelImageLibrary(card, images) {
+    const imageKey = getOriginLabelImageKey(card);
+    const payload = {
+      name: normalizeOriginLabelText(card && card.name),
+      origin: normalizeOriginLabelText(card && card.origin),
+      images: (images || []).slice(0, 6),
+      updatedAt: Date.now(),
+    };
+    fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(err => {
+      console.error(err);
+      setOriginLabelItems(prev => prev.map(item =>
+        getOriginLabelImageKey(item.card) === imageKey ? { ...item, imageError: "이미지 저장에 실패했습니다" } : item
+      ));
+    });
+  }
+
   function addOriginLabelImages(itemId, files) {
     const selected = Array.from(files || []).slice(0, 6);
     if (selected.length === 0) return;
-    Promise.all(selected.map(file => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({ id: uid(), name: file.name, src: reader.result });
-      reader.readAsDataURL(file);
-    }))).then(images => {
+    Promise.all(selected.map(fileToOriginLabelImage)).then(images => {
+      const currentItem = originLabelItems.find(item => item.id === itemId);
+      if (!currentItem) return;
+      const nextImages = [...(currentItem.images || []), ...images].slice(0, 6);
       setOriginLabelItems(prev => prev.map(item => {
         if (item.id !== itemId) return item;
-        return { ...item, images: [...item.images, ...images].slice(0, 6) };
+        return { ...item, images: nextImages, imageError: null };
       }));
+      saveOriginLabelImageLibrary(currentItem.card, nextImages);
+    }).catch(err => {
+      console.error(err);
+      setOriginLabelItems(prev => prev.map(item =>
+        item.id === itemId ? { ...item, imageError: "이미지를 읽지 못했습니다" } : item
+      ));
     });
   }
 
   function removeOriginLabelImage(itemId, imageId) {
+    const currentItem = originLabelItems.find(item => item.id === itemId);
+    if (!currentItem) return;
+    const nextImages = (currentItem.images || []).filter(img => img.id !== imageId);
     setOriginLabelItems(prev => prev.map(item =>
-      item.id === itemId ? { ...item, images: item.images.filter(img => img.id !== imageId) } : item
+      item.id === itemId
+        ? { ...item, images: nextImages, imageError: null }
+        : item
     ));
+    saveOriginLabelImageLibrary(currentItem.card, nextImages);
   }
 
   const [products, setProducts] = useState([]);
@@ -1855,7 +1963,7 @@ function App() {
     );
   }, [savedCards, originLabelSearch]);
 
-  const originLabelPrintableCount = originLabelItems.filter(item => item.images.length >= 3).length;
+  const originLabelPrintableCount = originLabelItems.filter(item => (item.images || []).length >= 3).length;
   const printDisabled = mainTab === "origin-label" ? originLabelPrintableCount === 0 : queue.length === 0;
   const printLabel = mainTab === "origin-label"
     ? `원라벨 A4 저장${originLabelPrintableCount > 0 ? ` (${originLabelPrintableCount}장)` : ""}`
@@ -1891,7 +1999,7 @@ function App() {
         <div id="print-area">
           {mainTab === "origin-label" ? (
             <div className="originlabel-print-grid">
-              {originLabelItems.filter(item => item.images.length >= 3).map(item => (
+              {originLabelItems.filter(item => (item.images || []).length >= 3).map(item => (
                 <OriginLabelPrintSheet key={item.id} item={item} settings={settings} designs={designs} />
               ))}
             </div>
@@ -2313,7 +2421,7 @@ function App() {
                           <p className="originlabel-item-origin">{item.card.origin || "원산지 없음"}</p>
                         </div>
                         <div className="originlabel-actions">
-                          <span className="originlabel-count">{item.images.length}/6장</span>
+                          <span className="originlabel-count">{(item.images || []).length}/6장</span>
                           <label className="originlabel-upload">
                             <IconUpload size={11} /> 이미지 추가
                             <input
@@ -2336,9 +2444,17 @@ function App() {
                         </div>
                       </div>
 
-                      {item.images.length > 0 && (
+                      {item.imageLoading && (
+                        <p className="field-hint">저장된 원산지 이미지를 불러오는 중입니다.</p>
+                      )}
+
+                      {item.imageError && (
+                        <p className="field-hint" style={{ color: "#c0392b" }}>{item.imageError}</p>
+                      )}
+
+                      {(item.images || []).length > 0 && (
                         <div className="originlabel-images">
-                          {item.images.map(img => (
+                          {(item.images || []).map(img => (
                             <div key={img.id} className="originlabel-image">
                               <img src={img.src} alt={img.name} />
                               <button onClick={() => removeOriginLabelImage(item.id, img.id)} title="이미지 삭제">
@@ -2354,7 +2470,7 @@ function App() {
                         <OriginLabelMiniSheet item={item} settings={settings} designs={designs} />
                       </div>
 
-                      {item.images.length < 3 && (
+                      {(item.images || []).length < 3 && (
                         <p className="field-hint">A4 저장에는 이미지가 최소 3장 필요합니다.</p>
                       )}
                     </div>
