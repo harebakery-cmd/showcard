@@ -231,7 +231,8 @@
   .originlabel-register{border:1px solid var(--border);border-radius:6px;background:#fff;padding:12px;display:flex;flex-direction:column;gap:9px;}
   .originlabel-register-title{font-size:12px;font-weight:900;margin:0;color:var(--foreground);}
   .originlabel-register textarea{width:100%;min-height:74px;padding:9px 10px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);resize:vertical;}
-  .originlabel-register textarea:focus{outline:none;border-color:var(--primary);}
+  .originlabel-register input{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);}
+  .originlabel-register textarea:focus,.originlabel-register input:focus{outline:none;border-color:var(--primary);}
   .originlabel-register-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .originlabel-library-preview{display:flex;flex-wrap:wrap;gap:5px;}
   .originlabel-library-thumb{width:44px;height:34px;border:1px solid var(--border);border-radius:3px;object-fit:contain;background:#FFFDF8;}
@@ -601,6 +602,9 @@ function normalizeSavedCard(saved) {
 function normalizeOriginLabelText(value) {
   return formatOriginText(String(value || "").trim().replace(/\s+/g, " "));
 }
+function normalizeOriginLabelVariant(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
 function stableHash(text) {
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
@@ -615,10 +619,13 @@ function stableHash(text) {
 }
 function getOriginLabelImageKey(card) {
   const origin = normalizeOriginLabelText(card && card.origin);
-  return "k_" + stableHash(origin.toLowerCase());
+  const variant = normalizeOriginLabelVariant(card && card.originLabelVariant);
+  const keyText = variant ? `${origin.toLowerCase()}\n#${variant.toLowerCase()}` : origin.toLowerCase();
+  return "k_" + stableHash(keyText);
 }
-function getOriginLabelImageKeysForOrigin(originText) {
+function getOriginLabelImageKeysForOrigin(originText, variantText) {
   const fullText = normalizeOriginLabelText(originText);
+  const variant = normalizeOriginLabelVariant(variantText);
   const keys = [];
   const seen = new Set();
   function addKey(text) {
@@ -628,6 +635,11 @@ function getOriginLabelImageKeysForOrigin(originText) {
     if (seen.has(key)) return;
     seen.add(key);
     keys.push({ key, origin: normalized });
+  }
+  if (variant && fullText) {
+    const key = getOriginLabelImageKey({ origin: fullText, originLabelVariant: variant });
+    seen.add(key);
+    keys.push({ key, origin: fullText, originLabelVariant: variant });
   }
   splitTopLevelList(fullText).forEach(addKey);
   addKey(fullText);
@@ -1634,6 +1646,7 @@ function App() {
   const [originLabelItems, setOriginLabelItems] = useState([]);
   const [originLabelSearch, setOriginLabelSearch] = useState("");
   const [originLabelRegisterText, setOriginLabelRegisterText] = useState("");
+  const [originLabelRegisterVariant, setOriginLabelRegisterVariant] = useState("");
   const [originLabelRegisterImages, setOriginLabelRegisterImages] = useState([]);
   const [originLabelRegisterLoading, setOriginLabelRegisterLoading] = useState(false);
   const [originLabelRegisterError, setOriginLabelRegisterError] = useState(null);
@@ -1743,6 +1756,7 @@ function App() {
       name: product.name || "",
       description: "",
       origin: formatOriginText(originItemsToText(product.origin)),
+      originLabelVariant: normalizeOriginLabelVariant(product.originLabelVariant),
       price: formatPriceText(product.price || ""),
       allergens: Array.isArray(product.allergens) ? product.allergens : [],
       message: "",
@@ -1764,7 +1778,7 @@ function App() {
   }
 
   async function loadOriginLabelImages(itemId, card) {
-    const imageSources = getOriginLabelImageKeysForOrigin(card && card.origin);
+    const imageSources = getOriginLabelImageKeysForOrigin(card && card.origin, card && card.originLabelVariant);
     try {
       const results = await Promise.all(imageSources.map(async source => {
         const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${source.key}.json`);
@@ -1792,7 +1806,9 @@ function App() {
 
   async function loadOriginLabelRegisterLibrary(text) {
     const originText = normalizeOriginLabelText(text);
+    const originLabelVariant = normalizeOriginLabelVariant(originLabelRegisterVariant);
     setOriginLabelRegisterText(originText);
+    setOriginLabelRegisterVariant(originLabelVariant);
     setOriginLabelRegisterError(null);
     if (!originText) {
       setOriginLabelRegisterImages([]);
@@ -1800,7 +1816,7 @@ function App() {
     }
     setOriginLabelRegisterLoading(true);
     try {
-      const imageKey = getOriginLabelImageKey({ origin: originText });
+      const imageKey = getOriginLabelImageKey({ origin: originText, originLabelVariant });
       const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${imageKey}.json`);
       if (!res.ok) throw new Error("load failed");
       const data = await res.json();
@@ -1815,9 +1831,10 @@ function App() {
 
   function saveOriginLabelRegisterLibrary(images) {
     const originText = normalizeOriginLabelText(originLabelRegisterText);
+    const originLabelVariant = normalizeOriginLabelVariant(originLabelRegisterVariant);
     if (!originText) return;
-    const payload = { origin: originText, images: (images || []).slice(0, 6), updatedAt: Date.now() };
-    fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${getOriginLabelImageKey({ origin: originText })}.json`, {
+    const payload = { origin: originText, originLabelVariant, images: (images || []).slice(0, 6), updatedAt: Date.now() };
+    fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${getOriginLabelImageKey({ origin: originText, originLabelVariant })}.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1829,10 +1846,13 @@ function App() {
 
   function addOriginLabelRegisterImages(files) {
     const originText = normalizeOriginLabelText(originLabelRegisterText);
+    const originLabelVariant = normalizeOriginLabelVariant(originLabelRegisterVariant);
     if (!originText) {
       setOriginLabelRegisterError("먼저 원산지 텍스트를 입력해주세요");
       return;
     }
+    setOriginLabelRegisterText(originText);
+    setOriginLabelRegisterVariant(originLabelVariant);
     const selected = Array.from(files || []).slice(0, 6);
     if (selected.length === 0) return;
     setOriginLabelRegisterError(null);
@@ -2396,7 +2416,12 @@ function App() {
                 <textarea
                   value={originLabelRegisterText}
                   onChange={(e) => setOriginLabelRegisterText(e.target.value)}
-                  placeholder="예) 밀가루(밀:미국,캐나다산)"
+                  placeholder="예) 밀가루(밀:미국산)"
+                />
+                <input
+                  value={originLabelRegisterVariant}
+                  onChange={(e) => setOriginLabelRegisterVariant(e.target.value)}
+                  placeholder="원라벨 구분 (선택) 예: CJ, 곰표"
                 />
                 <div className="originlabel-register-actions">
                   <button type="button" className="btn-reset" onClick={() => loadOriginLabelRegisterLibrary(originLabelRegisterText)}>
