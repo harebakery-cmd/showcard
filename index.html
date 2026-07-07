@@ -252,6 +252,10 @@
   .originlabel-item-name{font-size:13px;font-weight:900;margin:0;}
   .originlabel-item-origin{font-size:10.5px;color:#5a4a3a;line-height:1.5;margin-top:3px;}
   .originlabel-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .originlabel-variant-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .originlabel-variant-select{min-width:160px;max-width:240px;padding:7px 28px 7px 9px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;color:var(--foreground);font-size:11px;font-weight:800;}
+  .originlabel-save-btn{display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #2C8B86;border-radius:4px;background:#EAF7F6;color:#176865;font-size:11px;font-weight:900;cursor:pointer;}
+  .originlabel-save-btn:disabled{opacity:.55;cursor:not-allowed;}
   .originlabel-upload{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border-radius:4px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:10.5px;font-weight:800;white-space:nowrap;}
   .originlabel-upload input{display:none;}
   .originlabel-count{font-size:10px;font-weight:800;color:#2C8B86;background:#EAF7F6;border-radius:20px;padding:3px 8px;}
@@ -444,6 +448,7 @@ const DESIGNS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.fir
 // listed in the "저장된 카드" tab and loadable straight into the print queue.
 const SAVED_CARDS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
 const ORIGIN_LABEL_IMAGES_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_images";
+const ORIGIN_LABEL_SELECTIONS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_selections";
 
 // Matches the allergen field keys used by https://harebakery-cmd.github.io/hare-allergen/
 // so products loaded from that source map 1:1 without translation.
@@ -623,6 +628,11 @@ function getOriginLabelImageKey(card) {
   const keyText = variant ? `${origin.toLowerCase()}\n#${variant.toLowerCase()}` : origin.toLowerCase();
   return "k_" + stableHash(keyText);
 }
+function getOriginLabelSelectionKey(card) {
+  const name = normalizeProductName(card && card.name).toLowerCase();
+  const origin = normalizeOriginLabelText(card && card.origin).toLowerCase();
+  return "s_" + stableHash(`${name}\n${origin}`);
+}
 function getOriginLabelImageKeysForOrigin(originText, variantText) {
   const fullText = normalizeOriginLabelText(originText);
   const variant = normalizeOriginLabelVariant(variantText);
@@ -637,13 +647,30 @@ function getOriginLabelImageKeysForOrigin(originText, variantText) {
     keys.push({ key, origin: normalized });
   }
   if (variant && fullText) {
-    const key = getOriginLabelImageKey({ origin: fullText, originLabelVariant: variant });
-    seen.add(key);
-    keys.push({ key, origin: fullText, originLabelVariant: variant });
+    [...splitTopLevelList(fullText), fullText].forEach(text => {
+      const normalized = normalizeOriginLabelText(text);
+      if (!normalized) return;
+      const key = getOriginLabelImageKey({ origin: normalized, originLabelVariant: variant });
+      if (seen.has(key)) return;
+      seen.add(key);
+      keys.push({ key, origin: normalized, originLabelVariant: variant });
+    });
   }
   splitTopLevelList(fullText).forEach(addKey);
   addKey(fullText);
   return keys;
+}
+function makeOriginLabelVariantOption(key, data) {
+  return {
+    key,
+    origin: normalizeOriginLabelText(data && data.origin),
+    originLabelVariant: normalizeOriginLabelVariant(data && data.originLabelVariant),
+    images: Array.isArray(data && data.images) ? data.images.slice(0, 6) : [],
+  };
+}
+function originLabelVariantLabel(option) {
+  const variant = normalizeOriginLabelVariant(option && option.originLabelVariant);
+  return variant || "공통 원라벨";
 }
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -1777,9 +1804,102 @@ function App() {
     setOriginLabelItems(prev => prev.filter(item => item.id !== id));
   }
 
+  async function loadOriginLabelSavedSelection(card) {
+    const res = await fetch(`${ORIGIN_LABEL_SELECTIONS_BASE_URL}/${getOriginLabelSelectionKey(card)}.json`);
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
+  async function loadOriginLabelVariantOptions(originText) {
+    const fullOrigin = normalizeOriginLabelText(originText);
+    if (!fullOrigin) return [];
+    const originCandidates = new Set(splitTopLevelList(fullOrigin).map(normalizeOriginLabelText).filter(Boolean));
+    originCandidates.add(fullOrigin);
+    const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}.json`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const seen = new Set();
+    const options = Object.entries(data || {})
+      .map(([key, value]) => makeOriginLabelVariantOption(key, value))
+      .filter(option => originCandidates.has(option.origin) && option.images.length > 0)
+      .filter(option => {
+        const dedupeKey = `${option.origin.toLowerCase()}\n${normalizeOriginLabelVariant(option.originLabelVariant).toLowerCase()}`;
+        if (seen.has(dedupeKey)) return false;
+        seen.add(dedupeKey);
+        return true;
+      })
+      .sort((a, b) => {
+        if (!a.originLabelVariant && b.originLabelVariant) return -1;
+        if (a.originLabelVariant && !b.originLabelVariant) return 1;
+        return originLabelVariantLabel(a).localeCompare(originLabelVariantLabel(b), "ko");
+      });
+    const counts = options.reduce((acc, option) => {
+      acc[option.origin] = (acc[option.origin] || 0) + 1;
+      return acc;
+    }, {});
+    return options.filter(option => counts[option.origin] > 1);
+  }
+
+  function applyOriginLabelVariant(itemId, variantKey) {
+    setOriginLabelItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const option = (item.variantOptions || []).find(o => o.key === variantKey);
+      if (!option) return item;
+      return {
+        ...item,
+        images: option.images,
+        selectedOriginLabelKey: option.key,
+        selectedOriginLabelOrigin: option.origin,
+        selectedOriginLabelVariant: option.originLabelVariant,
+        selectionSaved: false,
+        card: { ...item.card, originLabelVariant: option.originLabelVariant },
+      };
+    }));
+  }
+
+  function saveOriginLabelSelection(itemId) {
+    const item = originLabelItems.find(x => x.id === itemId);
+    if (!item) return;
+    const originLabelVariant = normalizeOriginLabelVariant(item.selectedOriginLabelVariant);
+    const payload = {
+      productName: item.card.name || "",
+      origin: normalizeOriginLabelText(item.card.origin),
+      originLabelOrigin: normalizeOriginLabelText(item.selectedOriginLabelOrigin),
+      originLabelVariant,
+      updatedAt: Date.now(),
+    };
+    setOriginLabelItems(prev => prev.map(x => x.id === itemId ? { ...x, selectionSaving: true, selectionError: null } : x));
+    fetch(`${ORIGIN_LABEL_SELECTIONS_BASE_URL}/${getOriginLabelSelectionKey(item.card)}.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(() => {
+      setOriginLabelItems(prev => prev.map(x => x.id === itemId ? { ...x, selectionSaving: false, selectionSaved: true, selectionError: null } : x));
+    }).catch(err => {
+      console.error(err);
+      setOriginLabelItems(prev => prev.map(x => x.id === itemId ? { ...x, selectionSaving: false, selectionSaved: false, selectionError: "저장 실패" } : x));
+    });
+  }
+
   async function loadOriginLabelImages(itemId, card) {
-    const imageSources = getOriginLabelImageKeysForOrigin(card && card.origin, card && card.originLabelVariant);
+    let savedSelection = null;
+    let variantOptions = [];
+    let imageSources = [];
     try {
+      [savedSelection, variantOptions] = await Promise.all([
+        loadOriginLabelSavedSelection(card).catch(() => null),
+        loadOriginLabelVariantOptions(card && card.origin).catch(() => []),
+      ]);
+      const savedVariant = normalizeOriginLabelVariant(savedSelection && savedSelection.originLabelVariant);
+      const savedOrigin = normalizeOriginLabelText(savedSelection && savedSelection.originLabelOrigin);
+      const cardVariant = normalizeOriginLabelVariant(card && card.originLabelVariant);
+      const preferredVariant = savedVariant || cardVariant;
+      const selectedOption = variantOptions.find(option => savedOrigin && option.origin === savedOrigin && normalizeOriginLabelVariant(option.originLabelVariant) === preferredVariant)
+        || variantOptions.find(option => normalizeOriginLabelVariant(option.originLabelVariant) === preferredVariant)
+        || variantOptions.find(option => !option.originLabelVariant)
+        || variantOptions[0];
+      const selectedVariant = selectedOption ? selectedOption.originLabelVariant : preferredVariant;
+      imageSources = getOriginLabelImageKeysForOrigin(card && card.origin, selectedVariant);
       const results = await Promise.all(imageSources.map(async source => {
         const res = await fetch(`${ORIGIN_LABEL_IMAGES_BASE_URL}/${source.key}.json`);
         if (!res.ok) return [];
@@ -1793,8 +1913,21 @@ function App() {
         seen.add(key);
         return true;
       }).slice(0, 6);
+      const selectedImages = selectedOption ? selectedOption.images : images;
       setOriginLabelItems(prev => prev.map(item =>
-        item.id === itemId ? { ...item, imageSources, images: (item.images || []).length ? item.images : images, imageLoading: false, imageError: null } : item
+        item.id === itemId ? {
+          ...item,
+          imageSources,
+          variantOptions,
+          selectedOriginLabelKey: selectedOption ? selectedOption.key : "",
+          selectedOriginLabelOrigin: selectedOption ? selectedOption.origin : "",
+          selectedOriginLabelVariant: normalizeOriginLabelVariant(selectedVariant),
+          selectionSaved: !!savedVariant,
+          images: (item.images || []).length ? item.images : selectedImages,
+          imageLoading: false,
+          imageError: null,
+          card: { ...item.card, originLabelVariant: normalizeOriginLabelVariant(selectedVariant) },
+        } : item
       ));
     } catch (err) {
       console.error(err);
@@ -2527,6 +2660,31 @@ function App() {
                         <div className="originlabel-item-info">
                           <p className="originlabel-item-name">{item.card.name}</p>
                           <p className="originlabel-item-origin">{item.card.origin || "원산지 없음"}</p>
+                          {(item.variantOptions || []).length > 1 && (
+                            <div className="originlabel-variant-row">
+                              <select
+                                className="originlabel-variant-select"
+                                value={item.selectedOriginLabelKey || ""}
+                                onChange={(e) => applyOriginLabelVariant(item.id, e.target.value)}
+                                title="원라벨 이미지 선택"
+                              >
+                                {(item.variantOptions || []).map(option => (
+                                  <option key={option.key} value={option.key}>
+                                    {option.origin} / {originLabelVariantLabel(option)}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="originlabel-save-btn"
+                                disabled={item.selectionSaving}
+                                onClick={() => saveOriginLabelSelection(item.id)}
+                              >
+                                {item.selectionSaving ? "저장중" : item.selectionSaved ? "저장됨" : "저장"}
+                              </button>
+                              {item.selectionError && <span className="field-hint" style={{ color: "#c0392b", margin: 0 }}>{item.selectionError}</span>}
+                            </div>
+                          )}
                         </div>
                         <div className="originlabel-actions">
                           <span className="originlabel-count">{(item.images || []).length}/6장</span>
