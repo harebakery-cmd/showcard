@@ -434,21 +434,21 @@ const { createPortal } = ReactDOM;
 /* ═══════════════════════ Constants ═══════════════════════ */
 
 const SCREEN_SCALE = 3.15;
-const PRODUCT_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products.json";
-const PRODUCT_DB_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/products";
-const ORIGIN_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins.json";
-const ORIGIN_DB_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origins";
+const PRODUCT_DB_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/products.json";
+const PRODUCT_DB_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/products";
+const ORIGIN_DB_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/origins.json";
+const ORIGIN_DB_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/origins";
 // Manage-tab settings (fonts/sizes/colors/positions) — shared across every
 // location so "변경 저장" makes the same look apply everywhere.
-const SETTINGS_DB_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
+const SETTINGS_DB_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
 // Uploaded card design images, stored ONE NODE PER CARD TYPE (not nested
 // inside settings) so each type gets its own ~10MB Firebase node budget.
-const DESIGNS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_designs";
+const DESIGNS_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_designs";
 // Reusable saved show-card entries (제품명/설명/원산지/가격/알레르기 etc. as a set),
 // listed in the "저장된 카드" tab and loadable straight into the print queue.
-const SAVED_CARDS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
-const ORIGIN_LABEL_IMAGES_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_images";
-const ORIGIN_LABEL_SELECTIONS_BASE_URL = "https://hare-allergen-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_selections";
+const SAVED_CARDS_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
+const ORIGIN_LABEL_IMAGES_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_images";
+const ORIGIN_LABEL_SELECTIONS_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/origin_label_selections";
 
 // Matches the allergen field keys used by https://harebakery-cmd.github.io/hare-allergen/
 // so products loaded from that source map 1:1 without translation.
