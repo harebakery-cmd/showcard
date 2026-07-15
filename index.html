@@ -441,9 +441,8 @@ const ORIGIN_DB_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.
 // Manage-tab settings (fonts/sizes/colors/positions) — shared across every
 // location so "변경 저장" makes the same look apply everywhere.
 const SETTINGS_DB_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
-// Uploaded card design images, stored ONE NODE PER CARD TYPE (not nested
-// inside settings) so each type gets its own ~10MB Firebase node budget.
-const DESIGNS_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_designs";
+// Large assets are served by GitHub Pages so they never consume Firebase download quota.
+const GITHUB_ASSET_BASE_URL = "https://harebakery-cmd.github.io/hare-allergen/images";
 // Reusable saved show-card entries (제품명/설명/원산지/가격/알레르기 etc. as a set),
 // listed in the "저장된 카드" tab and loadable straight into the print queue.
 const SAVED_CARDS_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_saved";
@@ -543,7 +542,11 @@ const DEFAULT_SETTINGS = {
 };
 
 const DEFAULT_DESIGNS = Object.fromEntries(
-  CARD_TYPE_LIST.map(t => [t.id, { image: null, fileKind: null, fileName: "" }])
+  CARD_TYPE_LIST.map(t => [t.id, {
+    image: `${GITHUB_ASSET_BASE_URL}/showcard/${t.id}.png`,
+    fileKind: "github",
+    fileName: `${t.id}.png`,
+  }])
 );
 
 // Product name and price are intentionally identical across every type here —
@@ -1336,22 +1339,9 @@ function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDes
             </label>
           </div>
 
-          <div className="design-actions">
-            <label className="upload-label">
-              <IconUpload size={12} />
-              {busy ? "처리 중..." : design.image ? "디자인 교체" : "디자인 이미지 업로드"}
-              <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.svg,.pdf,image/*,application/pdf"
-                disabled={busy} onChange={handleFile} />
-            </label>
-            {design.image && (
-              <button className="btn-ghost-sm" onClick={resetDesign} disabled={busy}>
-                <IconRefresh size={11} /> 기본 디자인으로 되돌리기
-              </button>
-            )}
-          </div>
           <p className="design-hint">
-            PNG · JPG · SVG · PDF 업로드 가능 (SVG는 벡터 화질 그대로, PDF는 첫 페이지를 고해상도로 변환해 사용합니다).
-            업로드한 디자인은 위에서 설정한 가로×세로 사이즈에 맞춰 출력됩니다.
+            디자인은 GitHub의 images/showcard/{type}.png 파일을 사용합니다.
+            디자인을 바꾸려면 GitHub에서 같은 이름의 파일을 교체하세요.
           </p>
         </div>
       </div>
@@ -1693,19 +1683,16 @@ function App() {
   const [originLabelRegisterLoading, setOriginLabelRegisterLoading] = useState(false);
   const [originLabelRegisterError, setOriginLabelRegisterError] = useState(null);
 
-  // Load the shared manage-tab settings + uploaded designs from Firebase once
-  // on startup (falls back to the built-in defaults if nothing saved yet).
+  // Load only lightweight text settings from Firebase. Designs stay on GitHub Pages.
   useEffect(() => {
     (async () => {
       try {
-        const [sRes, dRes] = await Promise.all([fetch(SETTINGS_DB_URL), fetch(DESIGNS_BASE_URL + ".json")]);
+        const sRes = await fetch(SETTINGS_DB_URL);
         const sData = sRes.ok ? await sRes.json() : null;
-        const dData = dRes.ok ? await dRes.json() : null;
         if (sData) {
           setSettings(mergeSettings(sData));
           if (sData.customFonts && sData.customFonts.length) hydrateCustomFonts(sData.customFonts);
         }
-        if (dData) setDesigns(prev => ({ ...DEFAULT_DESIGNS, ...dData }));
       } catch (err) {
         console.error("manage settings load failed", err);
       } finally {
@@ -1714,18 +1701,12 @@ function App() {
     })();
   }, []);
 
-  // "변경 저장" — persists fonts/sizes/colors/positions + every uploaded design
-  // image to Firebase so the look is fixed and shared across every computer.
+  // Save only lightweight text settings. Design images are fixed GitHub assets.
   async function saveManageChanges() {
     setManageSaving(true);
     setManageError(null);
     try {
       await fetch(SETTINGS_DB_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) });
-      await Promise.all(CARD_TYPE_LIST.map(t => {
-        const d = designs[t.id];
-        const payload = d && d.image ? d : null;
-        return fetch(`${DESIGNS_BASE_URL}/${t.id}.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      }));
       setManageSavedAt(Date.now());
     } catch (err) {
       console.error(err);
