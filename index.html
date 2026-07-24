@@ -510,7 +510,9 @@ const CARD_TYPE_LIST = [
   { id: "small",      label: "작은사이즈" },
   { id: "cookie",     label: "쿠키사이즈" },
   { id: "no-origin",  label: "원산지 없는버전" },
-  { id: "season",     label: "시즌 쇼카드" },
+  { id: "season",        label: "시즌 쇼카드", designFile: "season.png" },
+  { id: "season-small",  label: "시즌 작은사이즈", designFile: "season.png" },
+  { id: "season-cookie", label: "시즌 쿠키사이즈", designFile: "season.png" },
 ];
 
 // Fixed (non-configurable) frame look, matching the reference EPS base design —
@@ -543,7 +545,9 @@ const POSITION_PRESETS = {
   small:      { description: { x: 50, y: 14 }, name: { x: 50, y: 30 }, origin: { x: 34, y: 64 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
   cookie:     { description: { x: 50, y: 11 }, name: { x: 50, y: 32 }, origin: { x: 50, y: 66 }, price: { x: 50, y: 79 }, allergen: { x: 50, y: 92 } },
   "no-origin":{ description: { x: 50, y: 15 }, name: { x: 50, y: 34 }, origin: { x: 34, y: 64 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
-  season:     { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
+  season:          { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
+  "season-small":  { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
+  "season-cookie": { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
 };
 
 const DEFAULT_STYLE_PROFILE = {
@@ -569,7 +573,9 @@ const DEFAULT_SETTINGS = {
     small:      { width: 85, height: 48 },
     cookie:     { width: 60, height: 60 },
     "no-origin":{ width: 90, height: 55 },
-    season:     { width: 90, height: 70 },
+    season:          { width: 90, height: 70 },
+    "season-small":  { width: 85, height: 48 },
+    "season-cookie": { width: 60, height: 60 },
   },
   fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
   lineHeights: { description: 1.3, name: 1.15, origin: 1.28, price: 1, allergen: 1.4 },
@@ -595,9 +601,9 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_DESIGNS = Object.fromEntries(
   CARD_TYPE_LIST.map(t => [t.id, {
-    image: `${GITHUB_ASSET_BASE_URL}/showcard/${t.id}.png?v=${SHOWCARD_ASSET_VERSION}`,
+    image: `${GITHUB_ASSET_BASE_URL}/showcard/${t.designFile || `${t.id}.png`}?v=${SHOWCARD_ASSET_VERSION}`,
     fileKind: "github",
-    fileName: `${t.id}.png`,
+    fileName: t.designFile || `${t.id}.png`,
   }])
 );
 
@@ -608,7 +614,9 @@ const SAMPLE_CARDS = {
   small:      { id: "s", type: "small",      name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["밀"],              message: "" },
   cookie:     { id: "s", type: "cookie",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["호두"],             message: "" },
   "no-origin":{ id: "s", type: "no-origin",  name: "제품명", description: "제품 설명 예시", origin: "",                    price: "0,0", allergens: [],                   message: "안내 메시지 표기란입니다" },
-  season:     { id: "s", type: "season",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+  season:          { id: "s", type: "season",          name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+  "season-small":  { id: "s", type: "season-small",    name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+  "season-cookie": { id: "s", type: "season-cookie",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
 };
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
@@ -975,7 +983,7 @@ async function applyBulkUpload(parsedRows) {
 }
 
 function getStyleMode(type) {
-  return type === "season" ? "season" : "basic";
+  return String(type || "").startsWith("season") ? "season" : "basic";
 }
 function normalizeStyleProfile(profile, legacy = {}) {
   const legacyColors = {};
@@ -993,7 +1001,7 @@ function normalizeStyleProfile(profile, legacy = {}) {
   };
 }
 function getStyleProfile(settings, typeOrMode) {
-  const mode = typeOrMode === "season" ? "season" : "basic";
+  const mode = getStyleMode(typeOrMode);
   const saved = settings.styleProfiles && settings.styleProfiles[mode];
   return normalizeStyleProfile(saved, settings);
 }
@@ -1265,7 +1273,7 @@ function ShowCard({ card, settings, designs, scale = SCREEN_SCALE }) {
   const { width: wMm, height: hMm } = settings.sizes[card.type];
   const w = mmToPx(wMm, scale), h = mmToPx(hMm, scale);
   const px = (pt) => ptToPx(pt, scale);
-  const isSeason = card.type === "season";
+  const isSeason = getStyleMode(card.type) === "season";
   const design = designs && designs[card.type];
   const custom = design && design.image;
   const sw = Math.max(0.6, scale * 0.16);
@@ -1295,7 +1303,7 @@ function PrintCard({ card, settings, designs }) {
   const PRINT_SCALE = 3.78;
   const w = wMm * PRINT_SCALE, h = hMm * PRINT_SCALE;
   const px = (pt) => pt * 1.333;
-  const isSeason = card.type === "season";
+  const isSeason = getStyleMode(card.type) === "season";
   const design = designs && designs[card.type];
   const custom = design && design.image;
 
@@ -1431,7 +1439,7 @@ function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDes
             )}
           </p>
           <p className="design-meta">
-            {type === "no-origin" ? "원산지 표기 없음" : type === "season" ? "시즌 특별 디자인" :
+            {type === "no-origin" ? "원산지 표기 없음" : getStyleMode(type) === "season" ? "시즌 특별 디자인" :
              type === "cookie" ? "정방형 소형 카드" : type === "small" ? "컴팩트 사이즈" : "기본 표준 카드"}
             {design.fileName ? ` · ${design.fileName}` : ""}
           </p>
@@ -1452,7 +1460,7 @@ function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDes
           </div>
 
           <p className="design-hint">
-            디자인은 GitHub의 images/showcard/{type}.png 파일을 사용합니다.
+            디자인은 GitHub의 images/showcard/{design.fileName || `${type}.png`} 파일을 사용합니다.
             디자인을 바꾸려면 GitHub에서 같은 이름의 파일을 교체하세요.
           </p>
         </div>
@@ -1606,7 +1614,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
   const [manageMode, setManageMode] = useState("basic");
   const [presetStatus, setPresetStatus] = useState("");
   const profile = getStyleProfile(settings, manageMode);
-  const visibleTypes = CARD_TYPE_LIST.filter(t => manageMode === "season" ? t.id === "season" : t.id !== "season");
+  const visibleTypes = CARD_TYPE_LIST.filter(t => getStyleMode(t.id) === manageMode);
   const fieldConfigs = [
     { key: "description", label: "제품 설명", sizeKey: "descriptionSize", min: 4, max: 14 },
     { key: "name", label: "제품명", sizeKey: "nameSize", min: 8, max: 30 },
