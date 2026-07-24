@@ -288,6 +288,13 @@
   .manage-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
   .manage-section-head h2{font-size:14px;font-weight:800;margin:0;}
   .manage-section-head .sub{font-size:11px;color:var(--muted-foreground);}
+  .manage-mode-tabs{display:flex;gap:8px;padding:5px;background:#F5F0E8;border:1px solid var(--border);
+    border-radius:8px;align-self:flex-start;}
+  .manage-mode-tab{border:1px solid transparent;background:transparent;color:#6f5d4d;border-radius:5px;
+    padding:9px 18px;font-size:12px;font-weight:800;transition:all .15s;}
+  .manage-mode-tab:hover{background:#fff;}
+  .manage-mode-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;
+    box-shadow:0 2px 5px rgba(35,25,22,.14);}
 
   .manage-savebar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:14px;
     background:#FFF9F0;border:1px solid var(--border);border-radius:6px;padding:10px 14px;box-shadow:0 2px 8px rgba(28,16,7,.05);}
@@ -382,6 +389,17 @@
 
   .settings-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px;
     display:flex;flex-direction:column;gap:14px;}
+  .preset-card{background:#FFF9F0;border:1px solid var(--border);border-radius:6px;padding:13px;}
+  .preset-title{font-size:11px;font-weight:800;margin:0 0 4px;}
+  .preset-desc{font-size:10px;color:var(--muted-foreground);line-height:1.45;margin:0 0 10px;}
+  .preset-list{display:flex;flex-direction:column;gap:7px;}
+  .preset-row{display:grid;grid-template-columns:64px 1fr 1fr;gap:6px;align-items:center;}
+  .preset-row-name{font-size:11px;font-weight:800;color:#5a4a3a;}
+  .preset-btn{border:1px solid var(--border);border-radius:4px;background:#fff;color:#5a4a3a;
+    padding:6px 8px;font-size:10px;font-weight:700;}
+  .preset-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .preset-btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .preset-state{font-size:9px;color:#2C8B86;margin-top:8px;min-height:13px;}
   .field-group{display:flex;flex-direction:column;gap:9px;padding-bottom:14px;border-bottom:1px solid var(--border);}
   .field-group:last-child{border-bottom:none;padding-bottom:0;}
   .field-group-title{font-size:11px;font-weight:800;color:var(--foreground);margin:0;}
@@ -407,6 +425,11 @@
   .color-row .swatch-grp{display:flex;align-items:center;gap:7px;}
   .color-row input[type=color]{width:30px;height:26px;border-radius:4px;border:1px solid var(--border);cursor:pointer;padding:0;}
   .color-row .hex{font-size:11px;color:var(--muted-foreground);font-family:monospace;}
+  .align-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .align-row>span{font-size:12px;color:#5a4a3a;}
+  .align-row select{font-size:10px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;
+    background:#FFFDF8;color:var(--foreground);min-width:82px;}
+  .align-row select:focus{outline:none;border-color:var(--primary);}
   .reset-all-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:4px;font-size:11px;
     font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;align-self:flex-start;}
   .reset-all-btn:hover{border-color:var(--primary);color:var(--primary);}
@@ -443,6 +466,7 @@ const ORIGIN_DB_BASE_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.
 const SETTINGS_DB_URL = "https://hare-allergen1-default-rtdb.asia-southeast1.firebasedatabase.app/showcard_settings.json";
 // Large assets are served by GitHub Pages so they never consume Firebase download quota.
 const GITHUB_ASSET_BASE_URL = "https://harebakery-cmd.github.io/hare-allergen/images";
+const SHOWCARD_ASSET_VERSION = "20260724";
 const CLOUDINARY_CLOUD_NAME = "dq1edmat";
 const CLOUDINARY_UPLOAD_PRESET = "hare-allergen";
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
@@ -522,6 +546,23 @@ const POSITION_PRESETS = {
   season:     { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
 };
 
+const DEFAULT_STYLE_PROFILE = {
+  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
+  lineHeights: { description: 1.3, name: 1.15, origin: 1.28, price: 1, allergen: 1.4 },
+  fontFamilies: { description: null, name: null, origin: null, price: null, allergen: null },
+  colors: {
+    description: "#8a7a6a",
+    name: "#231916",
+    price: "#C9926B",
+    origin: "#595757",
+    allergen: "#888070",
+  },
+  alignments: { description: "center", name: "center", origin: "center", price: "center", allergen: "center" },
+};
+function cloneStyleProfile(profile = DEFAULT_STYLE_PROFILE) {
+  return JSON.parse(JSON.stringify(profile));
+}
+
 const DEFAULT_SETTINGS = {
   sizes: {
     standard:   { width: 90, height: 60 },
@@ -542,11 +583,19 @@ const DEFAULT_SETTINGS = {
   positions: Object.fromEntries(
     CARD_TYPE_LIST.map(t => [t.id, JSON.parse(JSON.stringify(POSITION_PRESETS[t.id]))])
   ),
+  styleProfiles: {
+    basic: cloneStyleProfile(),
+    season: cloneStyleProfile(),
+  },
+  stylePresets: {
+    basic: { list1: null, list2: null },
+    season: { list1: null, list2: null },
+  },
 };
 
 const DEFAULT_DESIGNS = Object.fromEntries(
   CARD_TYPE_LIST.map(t => [t.id, {
-    image: `${GITHUB_ASSET_BASE_URL}/showcard/${t.id}.png`,
+    image: `${GITHUB_ASSET_BASE_URL}/showcard/${t.id}.png?v=${SHOWCARD_ASSET_VERSION}`,
     fileKind: "github",
     fileName: `${t.id}.png`,
   }])
@@ -925,11 +974,38 @@ async function applyBulkUpload(parsedRows) {
   return { created, updated, priceSkipped, allergenWarnings, originsAdded: originsToAdd.size };
 }
 
-// Resolve the CSS font-family string for a given text field ("name" | "origin" | "price" | "allergen")
-// based on the user-uploaded TTF fonts registered in settings.customFonts.
-function resolveFontFamily(fieldKey, settings) {
-  const id = settings.fontFamilies && settings.fontFamilies[fieldKey];
-  if (!id) return "inherit";
+function getStyleMode(type) {
+  return type === "season" ? "season" : "basic";
+}
+function normalizeStyleProfile(profile, legacy = {}) {
+  const legacyColors = {};
+  if (legacy.descriptionColor) legacyColors.description = legacy.descriptionColor;
+  if (legacy.nameColor) legacyColors.name = legacy.nameColor;
+  if (legacy.priceColor) legacyColors.price = legacy.priceColor;
+  if (legacy.originColor) legacyColors.origin = legacy.originColor;
+  if (legacy.allergenColor) legacyColors.allergen = legacy.allergenColor;
+  return {
+    fonts: { ...DEFAULT_STYLE_PROFILE.fonts, ...(legacy.fonts || {}), ...((profile || {}).fonts || {}) },
+    lineHeights: { ...DEFAULT_STYLE_PROFILE.lineHeights, ...(legacy.lineHeights || {}), ...((profile || {}).lineHeights || {}) },
+    fontFamilies: { ...DEFAULT_STYLE_PROFILE.fontFamilies, ...(legacy.fontFamilies || {}), ...((profile || {}).fontFamilies || {}) },
+    colors: { ...DEFAULT_STYLE_PROFILE.colors, ...legacyColors, ...((profile || {}).colors || {}) },
+    alignments: { ...DEFAULT_STYLE_PROFILE.alignments, ...((profile || {}).alignments || {}) },
+  };
+}
+function getStyleProfile(settings, typeOrMode) {
+  const mode = typeOrMode === "season" ? "season" : "basic";
+  const saved = settings.styleProfiles && settings.styleProfiles[mode];
+  return normalizeStyleProfile(saved, settings);
+}
+
+// Resolve the CSS font-family string for a given text field based on the
+// active basic/season style profile and the shared uploaded-font library.
+function resolveFontFamily(fieldKey, settings, profile) {
+  const id = profile && profile.fontFamilies && profile.fontFamilies[fieldKey];
+  if (!id || id === "freesentation") return "'Freesentation', sans-serif";
+  if (id === "system-sans") return "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  if (id === "serif") return "Georgia, 'Times New Roman', serif";
+  if (id === "monospace") return "Consolas, 'Courier New', monospace";
   const cf = (settings.customFonts || []).find(f => f.id === id);
   return cf ? `'${cf.family}'` : "inherit";
 }
@@ -938,7 +1014,7 @@ function resolveFontFamily(fieldKey, settings) {
 // registers it in settings.customFonts, and assigns it to the given field.
 // Also keeps a base64 copy (dataUrl) so the font can be restored after a
 // page reload / on another computer once "변경 저장" persists it to Firebase.
-async function uploadCustomFont(file, fieldKey, setSettings) {
+async function uploadCustomFont(file, fieldKey, setSettings, styleMode) {
   try {
     const buf = await file.arrayBuffer();
     const family = "CF" + uid();
@@ -956,7 +1032,13 @@ async function uploadCustomFont(file, fieldKey, setSettings) {
     setSettings(s => ({
       ...s,
       customFonts: [...(s.customFonts || []), { id, label, family, dataUrl }],
-      fontFamilies: { ...s.fontFamilies, [fieldKey]: id },
+      styleProfiles: {
+        ...(s.styleProfiles || {}),
+        [styleMode]: {
+          ...getStyleProfile(s, styleMode),
+          fontFamilies: { ...getStyleProfile(s, styleMode).fontFamilies, [fieldKey]: id },
+        },
+      },
     }));
   } catch (err) {
     console.error(err);
@@ -986,6 +1068,8 @@ async function hydrateCustomFonts(customFonts) {
 // still falls back safely instead of crashing the UI.
 function mergeSettings(loaded) {
   if (!loaded) return DEFAULT_SETTINGS;
+  const loadedProfiles = loaded.styleProfiles || {};
+  const loadedPresets = loaded.stylePresets || {};
   return {
     ...DEFAULT_SETTINGS,
     ...loaded,
@@ -996,6 +1080,14 @@ function mergeSettings(loaded) {
     customFonts: loaded.customFonts || [],
     positions: Object.fromEntries(CARD_TYPE_LIST.map(t =>
       [t.id, { ...POSITION_PRESETS[t.id], ...((loaded.positions || {})[t.id] || {}) }])),
+    styleProfiles: {
+      basic: normalizeStyleProfile(loadedProfiles.basic, loaded),
+      season: normalizeStyleProfile(loadedProfiles.season, loaded),
+    },
+    stylePresets: {
+      basic: { list1: null, list2: null, ...(loadedPresets.basic || {}) },
+      season: { list1: null, list2: null, ...(loadedPresets.season || {}) },
+    },
   };
 }
 
@@ -1090,13 +1182,14 @@ function formatOriginText(value) {
 
 // Renders either a plain price, or — when a discount % is set — a small red
 // discount badge + strikethrough original price + bold discounted price.
-function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, px }) {
+function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, priceAlign, px }) {
   const original = parsePriceNumber(price);
   const hasDiscount = discountPercent > 0 && !isNaN(original) && original > 0;
+  const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
 
   if (!hasDiscount) {
     return (
-      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: "center", lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: priceAlign, lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
         {formatPriceText(price) || "—"}
       </div>
     );
@@ -1104,7 +1197,7 @@ function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize
 
   const discounted = Math.round(original * (100 - discountPercent) / 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: px(priceSize) * 0.08 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: flexAlign, gap: px(priceSize) * 0.08 }}>
       <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.4, fontWeight: 800, color: "#D64545", lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
         {discountPercent}%할인
       </span>
@@ -1127,36 +1220,39 @@ function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize
 // in that case we skip the built-in divider line above the allergen text,
 // since a custom design typically already has its own line/border there.
 function CardTextOverlay({ card, settings, px, custom }) {
-  const f = settings.fonts;
-  const lh = settings.lineHeights || DEFAULT_SETTINGS.lineHeights;
   const type = card.type;
+  const profile = getStyleProfile(settings, type);
+  const f = profile.fonts;
+  const lh = profile.lineHeights;
+  const colors = profile.colors;
+  const align = profile.alignments;
   const showOrigin = type !== "no-origin";
   const allergens = card.allergens || [];
   const allergenText = allergens.length ? getAllergenLabels(allergens) : "";
   const originText = showOrigin && card.origin ? formatOriginText(card.origin) : card.message ? card.message : "";
-  const descriptionFamily = resolveFontFamily("description", settings);
-  const nameFamily = resolveFontFamily("name", settings);
-  const originFamily = resolveFontFamily("origin", settings);
-  const priceFamily = resolveFontFamily("price", settings);
-  const allergenFamily = resolveFontFamily("allergen", settings);
+  const descriptionFamily = resolveFontFamily("description", settings, profile);
+  const nameFamily = resolveFontFamily("name", settings, profile);
+  const originFamily = resolveFontFamily("origin", settings, profile);
+  const priceFamily = resolveFontFamily("price", settings, profile);
+  const allergenFamily = resolveFontFamily("allergen", settings, profile);
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "visible" }}>
       {card.description && (
-        <div style={{ ...absPosStyle(settings, type, "description"), fontFamily: descriptionFamily, fontSize: px(f.descriptionSize), color: settings.descriptionColor, textAlign: "center", lineHeight: lh.description }}>
+        <div style={{ ...absPosStyle(settings, type, "description"), fontFamily: descriptionFamily, fontSize: px(f.descriptionSize), color: colors.description, textAlign: align.description, lineHeight: lh.description }}>
           {card.description}
         </div>
       )}
-      <div style={{ ...absPosStyle(settings, type, "name"), fontFamily: nameFamily, fontSize: px(f.nameSize), fontWeight: 900, color: settings.nameColor, textAlign: "center", lineHeight: lh.name }}>
+      <div style={{ ...absPosStyle(settings, type, "name"), fontFamily: nameFamily, fontSize: px(f.nameSize), fontWeight: 900, color: colors.name, textAlign: align.name, lineHeight: lh.name }}>
         {card.name || "제품명"}
       </div>
-      <div style={{ ...absPosStyle(settings, type, "origin"), fontFamily: originFamily, fontSize: px(f.originSize), color: settings.originColor, textAlign: "center", lineHeight: lh.origin, wordBreak: "keep-all", overflowWrap: "anywhere" }}>
+      <div style={{ ...absPosStyle(settings, type, "origin"), fontFamily: originFamily, fontSize: px(f.originSize), color: colors.origin, textAlign: align.origin, lineHeight: lh.origin, wordBreak: "keep-all", overflowWrap: "anywhere" }}>
         {originText || null}
       </div>
-      <div style={{ ...absPosStyle(settings, type, "price"), textAlign: "center" }}>
-        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={settings.priceColor} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} px={px} />
+      <div style={{ ...absPosStyle(settings, type, "price"), textAlign: align.price }}>
+        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
       </div>
       {showOrigin && (
-        <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: settings.allergenColor, textAlign: "center", lineHeight: lh.allergen,
+        <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: colors.allergen, textAlign: align.allergen, lineHeight: lh.allergen,
           borderTop: custom ? "none" : "0.5px solid #e0d8cc", paddingTop: custom ? 0 : px(f.allergenSize) * 0.5, minHeight: allergenText ? undefined : px(f.allergenSize) * lh.allergen }}>
           {allergenText}
         </div>
@@ -1443,8 +1539,21 @@ function ColorInput({ label, value, onChange }) {
   );
 }
 
-function FontFieldRow({ label, fieldKey, settings, setSettings }) {
-  const currentId = settings.fontFamilies[fieldKey] || "default";
+function AlignmentInput({ value, onChange }) {
+  return (
+    <label className="align-row">
+      <span>정렬</span>
+      <select value={value || "center"} onChange={(e) => onChange(e.target.value)}>
+        <option value="left">왼쪽</option>
+        <option value="center">가운데</option>
+        <option value="right">오른쪽</option>
+      </select>
+    </label>
+  );
+}
+
+function FontFieldRow({ label, fieldKey, settings, setSettings, styleMode, profile }) {
+  const currentId = profile.fontFamilies[fieldKey] || "freesentation";
   const [busy, setBusy] = useState(false);
 
   async function handleUpload(e) {
@@ -1453,7 +1562,7 @@ function FontFieldRow({ label, fieldKey, settings, setSettings }) {
     if (!file) return;
     setBusy(true);
     try {
-      await uploadCustomFont(file, fieldKey, setSettings);
+      await uploadCustomFont(file, fieldKey, setSettings, styleMode);
     } finally {
       setBusy(false);
     }
@@ -1461,7 +1570,16 @@ function FontFieldRow({ label, fieldKey, settings, setSettings }) {
 
   function handleSelect(e) {
     const v = e.target.value;
-    setSettings(s => ({ ...s, fontFamilies: { ...s.fontFamilies, [fieldKey]: v === "default" ? null : v } }));
+    setSettings(s => {
+      const active = getStyleProfile(s, styleMode);
+      return {
+        ...s,
+        styleProfiles: {
+          ...(s.styleProfiles || {}),
+          [styleMode]: { ...active, fontFamilies: { ...active.fontFamilies, [fieldKey]: v } },
+        },
+      };
+    });
   }
 
   return (
@@ -1469,11 +1587,14 @@ function FontFieldRow({ label, fieldKey, settings, setSettings }) {
       <span>{label}</span>
       <div className="font-field-controls">
         <select value={currentId} onChange={handleSelect}>
-          <option value="default">기본</option>
+          <option value="freesentation">프리젠테이션</option>
+          <option value="system-sans">시스템 고딕</option>
+          <option value="serif">명조 계열</option>
+          <option value="monospace">고정폭</option>
           {(settings.customFonts || []).map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
         </select>
         <label className="upload-label-sm">
-          <IconUpload size={10} /> {busy ? "..." : "TTF"}
+          <IconUpload size={10} /> {busy ? "..." : "TTF(현재기기)"}
           <input type="file" accept=".ttf,font/ttf,font/sfnt" disabled={busy} onChange={handleUpload} />
         </label>
       </div>
@@ -1482,11 +1603,74 @@ function FontFieldRow({ label, fieldKey, settings, setSettings }) {
 }
 
 function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving, savedAt, error, loaded, reloadProducts, reloadOrigins }) {
+  const [manageMode, setManageMode] = useState("basic");
+  const [presetStatus, setPresetStatus] = useState("");
+  const profile = getStyleProfile(settings, manageMode);
+  const visibleTypes = CARD_TYPE_LIST.filter(t => manageMode === "season" ? t.id === "season" : t.id !== "season");
+  const fieldConfigs = [
+    { key: "description", label: "제품 설명", sizeKey: "descriptionSize", min: 4, max: 14 },
+    { key: "name", label: "제품명", sizeKey: "nameSize", min: 8, max: 30 },
+    { key: "origin", label: "원산지", sizeKey: "originSize", min: 4, max: 14 },
+    { key: "price", label: "가격", sizeKey: "priceSize", min: 8, max: 30 },
+    { key: "allergen", label: "알레르기 유발물질", sizeKey: "allergenSize", min: 4, max: 12 },
+  ];
+
+  function updateProfile(updater) {
+    setSettings(s => {
+      const active = getStyleProfile(s, manageMode);
+      const nextProfile = typeof updater === "function" ? updater(active) : updater;
+      return { ...s, styleProfiles: { ...(s.styleProfiles || {}), [manageMode]: nextProfile } };
+    });
+  }
   function updateFont(key, val) {
-    setSettings(s => ({ ...s, fonts: { ...s.fonts, [key]: val } }));
+    updateProfile(p => ({ ...p, fonts: { ...p.fonts, [key]: val } }));
   }
   function updateLineHeight(key, val) {
-    setSettings(s => ({ ...s, lineHeights: { ...(s.lineHeights || DEFAULT_SETTINGS.lineHeights), [key]: val } }));
+    updateProfile(p => ({ ...p, lineHeights: { ...p.lineHeights, [key]: val } }));
+  }
+  function updateColor(key, val) {
+    updateProfile(p => ({ ...p, colors: { ...p.colors, [key]: val } }));
+  }
+  function updateAlignment(key, val) {
+    updateProfile(p => ({ ...p, alignments: { ...p.alignments, [key]: val } }));
+  }
+  function saveStylePreset(slot) {
+    const snapshot = cloneStyleProfile(profile);
+    const next = {
+      ...settings,
+      stylePresets: {
+        ...(settings.stylePresets || {}),
+        [manageMode]: { ...((settings.stylePresets || {})[manageMode] || {}), [slot]: snapshot },
+      },
+    };
+    setSettings(next);
+    setPresetStatus(`${manageMode === "season" ? "시즌" : "기본"} 쇼카드 · ${slot === "list1" ? "리스트 1" : "리스트 2"} 저장됨`);
+    onSave(next);
+  }
+  function loadStylePreset(slot) {
+    const saved = settings.stylePresets && settings.stylePresets[manageMode] && settings.stylePresets[manageMode][slot];
+    if (!saved) {
+      setPresetStatus(`${slot === "list1" ? "리스트 1" : "리스트 2"}에 저장된 설정이 없습니다.`);
+      return;
+    }
+    updateProfile(cloneStyleProfile(saved));
+    setPresetStatus(`${slot === "list1" ? "리스트 1" : "리스트 2"} 설정을 불러왔습니다. 위 저장 버튼을 누르면 전체 직원에게 반영됩니다.`);
+  }
+  function resetCurrentMode() {
+    const ids = visibleTypes.map(t => t.id);
+    const nextPositions = { ...settings.positions };
+    const nextSizes = { ...settings.sizes };
+    ids.forEach(id => {
+      nextPositions[id] = JSON.parse(JSON.stringify(POSITION_PRESETS[id]));
+      nextSizes[id] = { ...DEFAULT_SETTINGS.sizes[id] };
+    });
+    setSettings(s => ({
+      ...s,
+      sizes: nextSizes,
+      positions: nextPositions,
+      styleProfiles: { ...(s.styleProfiles || {}), [manageMode]: cloneStyleProfile() },
+    }));
+    setPresetStatus(`${manageMode === "season" ? "시즌" : "기본"} 쇼카드 설정을 기본값으로 되돌렸습니다.`);
   }
 
   const [bulkStatus, setBulkStatus] = useState("idle"); // idle | parsing | uploading | done | error
@@ -1530,6 +1714,19 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
 
   return (
     <div className="manage-wrap">
+      <div className="manage-mode-tabs" role="tablist" aria-label="쇼카드 관리 구분">
+        <button type="button" role="tab" aria-selected={manageMode === "basic"}
+          className={`manage-mode-tab ${manageMode === "basic" ? "active" : ""}`}
+          onClick={() => { setManageMode("basic"); setPresetStatus(""); }}>
+          기본 쇼카드
+        </button>
+        <button type="button" role="tab" aria-selected={manageMode === "season"}
+          className={`manage-mode-tab ${manageMode === "season" ? "active" : ""}`}
+          onClick={() => { setManageMode("season"); setPresetStatus(""); }}>
+          시즌 쇼카드
+        </button>
+      </div>
+
       <div className="manage-savebar">
         <div className="manage-savebar-info">
           {!loaded ? (
@@ -1539,15 +1736,15 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
           ) : savedAt ? (
             <span className="manage-savebar-status ok"><IconCheck size={12} /> {new Date(savedAt).toLocaleString("ko-KR")} 저장됨 — 모든 지점에 동일하게 반영됩니다</span>
           ) : (
-            <span className="manage-savebar-status">업로드한 디자인 · 폰트 · 색상 · 위치는 "변경 저장"을 눌러야 고정되고, 모든 지점 화면에 반영됩니다.</span>
+            <span className="manage-savebar-status">{manageMode === "season" ? "시즌" : "기본"} 쇼카드의 폰트 · 크기 · 색상 · 정렬 · 위치는 저장 버튼을 눌러야 모든 지점에 반영됩니다.</span>
           )}
         </div>
-        <button className="manage-save-btn" onClick={onSave} disabled={saving || !loaded}>
-          <IconSave size={13} /> {saving ? "저장 중..." : "변경 저장"}
+        <button className="manage-save-btn" onClick={() => onSave(settings)} disabled={saving || !loaded}>
+          <IconSave size={13} /> {saving ? "저장 중..." : `${manageMode === "season" ? "시즌" : "기본"} 쇼카드 저장`}
         </button>
       </div>
 
-      <section className="manage-bulk-section">
+      {manageMode === "basic" && <section className="manage-bulk-section">
         <div className="manage-section-head">
           <IconUpload size={15} style={{ color: "#B5762A" }} />
           <h2>제품 엑셀 일괄 업로드</h2>
@@ -1593,7 +1790,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
             </div>
           )}
         </div>
-      </section>
+      </section>}
 
       <div className="manage-columns">
         <section className="manage-col-left">
@@ -1603,7 +1800,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
             <span className="sub">— 직접 만든 디자인을 업로드하고, 같은 곳에서 사이즈까지 설정하세요</span>
           </div>
           <div className="design-grid">
-            {CARD_TYPE_LIST.map(({ id, label }) => (
+            {visibleTypes.map(({ id, label }) => (
               <DesignAndSizeCard key={id} type={id} label={label} settings={settings} setSettings={setSettings}
                 designs={designs} setDesigns={setDesigns} />
             ))}
@@ -1613,49 +1810,46 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
         <section className="manage-col-right">
           <div className="manage-section-head">
             <IconSettings size={15} style={{ color: "#B5762A" }} />
-            <h2>폰트 사이즈 &amp; 색상</h2>
-            <span className="sub">— 항목별로 크기·폰트(TTF 업로드)·색상을 따로 지정할 수 있어요. 카드는 항상 사각형으로 출력됩니다</span>
-          </div>
-          <div className="settings-card">
-            <div className="field-group">
-              <p className="field-group-title">제품 설명</p>
-              <NumberInput label="크기" value={settings.fonts.descriptionSize} onChange={(v) => updateFont("descriptionSize", v)} min={4} max={14} step={0.5} unit="pt" />
-              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).description} onChange={(v) => updateLineHeight("description", v)} min={0.8} max={2} step={0.05} unit="배" />
-              <FontFieldRow label="폰트" fieldKey="description" settings={settings} setSettings={setSettings} />
-              <ColorInput label="글자 색상" value={settings.descriptionColor} onChange={(v) => setSettings(s => ({ ...s, descriptionColor: v }))} />
-            </div>
-            <div className="field-group">
-              <p className="field-group-title">제품명</p>
-              <NumberInput label="크기" value={settings.fonts.nameSize} onChange={(v) => updateFont("nameSize", v)} min={8} max={30} step={0.5} unit="pt" />
-              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).name} onChange={(v) => updateLineHeight("name", v)} min={0.8} max={2} step={0.05} unit="배" />
-              <FontFieldRow label="폰트" fieldKey="name" settings={settings} setSettings={setSettings} />
-              <ColorInput label="글자 색상" value={settings.nameColor} onChange={(v) => setSettings(s => ({ ...s, nameColor: v }))} />
-            </div>
-            <div className="field-group">
-              <p className="field-group-title">원산지</p>
-              <NumberInput label="크기" value={settings.fonts.originSize} onChange={(v) => updateFont("originSize", v)} min={4} max={14} step={0.5} unit="pt" />
-              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).origin} onChange={(v) => updateLineHeight("origin", v)} min={0.8} max={2} step={0.05} unit="배" />
-              <FontFieldRow label="폰트" fieldKey="origin" settings={settings} setSettings={setSettings} />
-              <ColorInput label="글자 색상" value={settings.originColor} onChange={(v) => setSettings(s => ({ ...s, originColor: v }))} />
-            </div>
-            <div className="field-group">
-              <p className="field-group-title">가격</p>
-              <NumberInput label="크기" value={settings.fonts.priceSize} onChange={(v) => updateFont("priceSize", v)} min={8} max={30} step={0.5} unit="pt" />
-              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).price} onChange={(v) => updateLineHeight("price", v)} min={0.8} max={2} step={0.05} unit="배" />
-              <FontFieldRow label="폰트" fieldKey="price" settings={settings} setSettings={setSettings} />
-              <ColorInput label="글자 색상" value={settings.priceColor} onChange={(v) => setSettings(s => ({ ...s, priceColor: v }))} />
-            </div>
-            <div className="field-group">
-              <p className="field-group-title">알레르기 유발물질</p>
-              <NumberInput label="크기" value={settings.fonts.allergenSize} onChange={(v) => updateFont("allergenSize", v)} min={4} max={12} step={0.5} unit="pt" />
-              <NumberInput label="줄간격" value={(settings.lineHeights || DEFAULT_SETTINGS.lineHeights).allergen} onChange={(v) => updateLineHeight("allergen", v)} min={0.8} max={2} step={0.05} unit="배" />
-              <FontFieldRow label="폰트" fieldKey="allergen" settings={settings} setSettings={setSettings} />
-              <ColorInput label="글자 색상" value={settings.allergenColor} onChange={(v) => setSettings(s => ({ ...s, allergenColor: v }))} />
-            </div>
+            <h2>{manageMode === "season" ? "시즌" : "기본"} 쇼카드 글자 설정</h2>
+            <span className="sub">— 크기 · 줄간격 · 폰트 · 색상 · 정렬을 항목별로 저장합니다</span>
           </div>
 
-          <button className="reset-all-btn" onClick={() => setSettings(DEFAULT_SETTINGS)}>
-            <IconRefresh size={11} /> 기본값으로 초기화
+          <div className="preset-card">
+            <p className="preset-title">서식 리스트 저장 / 불러오기</p>
+            <p className="preset-desc">현재 다섯 항목의 글자 설정을 리스트 1 또는 2에 저장해 두고 한 번에 다시 적용할 수 있습니다.</p>
+            <div className="preset-list">
+              {["list1", "list2"].map((slot, index) => {
+                const exists = !!(settings.stylePresets && settings.stylePresets[manageMode] && settings.stylePresets[manageMode][slot]);
+                return (
+                  <div className="preset-row" key={slot}>
+                    <span className="preset-row-name">리스트 {index + 1}{exists ? " ✓" : ""}</span>
+                    <button type="button" className="preset-btn primary" onClick={() => saveStylePreset(slot)}>현재값 저장</button>
+                    <button type="button" className="preset-btn" onClick={() => loadStylePreset(slot)}>불러오기</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="preset-state">{presetStatus}</div>
+          </div>
+
+          <div className="settings-card">
+            {fieldConfigs.map(field => (
+              <div className="field-group" key={field.key}>
+                <p className="field-group-title">{field.label}</p>
+                <NumberInput label="크기" value={profile.fonts[field.sizeKey]} onChange={(v) => updateFont(field.sizeKey, v)}
+                  min={field.min} max={field.max} step={0.5} unit="pt" />
+                <NumberInput label="줄간격" value={profile.lineHeights[field.key]} onChange={(v) => updateLineHeight(field.key, v)}
+                  min={0.8} max={2} step={0.05} unit="배" />
+                <FontFieldRow label="폰트" fieldKey={field.key} settings={settings} setSettings={setSettings}
+                  styleMode={manageMode} profile={profile} />
+                <ColorInput label="글자 색상" value={profile.colors[field.key]} onChange={(v) => updateColor(field.key, v)} />
+                <AlignmentInput value={profile.alignments[field.key]} onChange={(v) => updateAlignment(field.key, v)} />
+              </div>
+            ))}
+          </div>
+
+          <button className="reset-all-btn" onClick={resetCurrentMode}>
+            <IconRefresh size={11} /> {manageMode === "season" ? "시즌" : "기본"} 설정 초기화
           </button>
         </section>
       </div>
@@ -1718,11 +1912,14 @@ function App() {
   }, []);
 
   // Save only lightweight text settings. Design images are fixed GitHub assets.
-  async function saveManageChanges() {
+  async function saveManageChanges(nextSettings = settings) {
     setManageSaving(true);
     setManageError(null);
     try {
-      await fetch(SETTINGS_DB_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) });
+      // Uploaded TTF files stay on the current device; only lightweight built-in
+      // font selections and style values are shared through Firebase.
+      const payload = { ...nextSettings, customFonts: [] };
+      await fetch(SETTINGS_DB_URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       setManageSavedAt(Date.now());
     } catch (err) {
       console.error(err);
