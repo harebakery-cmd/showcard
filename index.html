@@ -230,6 +230,12 @@
   .originlabel-search:focus{outline:none;border-color:var(--primary);}
   .originlabel-register{border:1px solid var(--border);border-radius:6px;background:#fff;padding:12px;display:flex;flex-direction:column;gap:9px;}
   .originlabel-register-title{font-size:12px;font-weight:900;margin:0;color:var(--foreground);}
+  .originlabel-upload-guide{border:1px solid #D9C9A8;border-radius:6px;background:linear-gradient(135deg,#FFF9EC 0%,#FFFDF8 100%);padding:10px 11px;color:var(--text2);}
+  .originlabel-upload-guide-title{display:flex;align-items:center;gap:6px;margin:0 0 6px;font-size:11px;font-weight:900;color:var(--primary);}
+  .originlabel-upload-guide ol{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:3px;}
+  .originlabel-upload-guide li{font-size:10.5px;line-height:1.5;}
+  .originlabel-upload-guide strong{color:var(--foreground);}
+  .originlabel-upload-guide-note{margin:7px 0 0;padding-top:7px;border-top:1px dashed #D9C9A8;font-size:10px;line-height:1.45;color:var(--text3);}
   .originlabel-register textarea{width:100%;min-height:74px;padding:9px 10px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);resize:vertical;}
   .originlabel-register input{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font-size:12px;color:var(--foreground);}
   .originlabel-register textarea:focus,.originlabel-register input:focus{outline:none;border-color:var(--primary);}
@@ -2761,6 +2767,16 @@ function App() {
             <aside className="originlabel-side">
               <section className="originlabel-register">
                 <p className="originlabel-register-title">원산지 이미지 자료 등록</p>
+                <div className="originlabel-upload-guide">
+                  <p className="originlabel-upload-guide-title">📎 원라벨 이미지 업로드 방법</p>
+                  <ol>
+                    <li>제품 DB에 등록된 것과 <strong>동일한 원산지 문구</strong>를 입력하세요.</li>
+                    <li>같은 문구의 원라벨이 여러 종류면 <strong>구분값</strong>(예: CJ, 곰표)을 입력하세요.</li>
+                    <li><strong>자료 확인</strong>으로 기존 사진을 확인한 뒤, 사진을 최대 6장 선택하세요.</li>
+                    <li>사진은 자동 압축·업로드되며 완료 후 별도 저장 버튼 없이 바로 공유됩니다.</li>
+                  </ol>
+                  <p className="originlabel-upload-guide-note">JPG·PNG·WEBP 지원 · 사진 원본은 Cloudinary에 저장되고 Firebase에는 문구와 사진 주소만 저장됩니다. 사진을 누르면 해당 사진이 삭제됩니다.</p>
+                </div>
                 <textarea
                   value={originLabelRegisterText}
                   onChange={(e) => setOriginLabelRegisterText(e.target.value)}
