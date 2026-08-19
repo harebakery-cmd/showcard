@@ -562,7 +562,7 @@ const POSITION_PRESETS = {
 };
 
 const DEFAULT_STYLE_PROFILE = {
-  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
+  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, priceLabelSize: 6, allergenSize: 5.5 },
   lineHeights: { description: 1.3, name: 1.15, origin: 1.28, price: 1, allergen: 1.4 },
   fontFamilies: { description: null, name: null, origin: null, price: null, allergen: null },
   colors: {
@@ -588,7 +588,7 @@ const DEFAULT_SETTINGS = {
     "season-small":  { width: 85, height: 48 },
     "season-cookie": { width: 60, height: 60 },
   },
-  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, allergenSize: 5.5 },
+  fonts: { descriptionSize: 7, nameSize: 15, originSize: 7, priceSize: 17, priceLabelSize: 6, allergenSize: 5.5 },
   lineHeights: { description: 1.3, name: 1.15, origin: 1.28, price: 1, allergen: 1.4 },
   fontFamilies: { description: null, name: null, origin: null, price: null, allergen: null },
   customFonts: [],
@@ -1206,23 +1206,20 @@ function formatOriginText(value) {
   return splitTopLevelList(value).join(", ");
 }
 
-// Renders either a plain price, or — when a discount % is set — a small red
-// discount badge + strikethrough original price + bold discounted price.
-function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, priceAlign, px }) {
-  const original = parsePriceNumber(price);
-  const hasDiscount = discountPercent > 0 && !isNaN(original) && original > 0;
+// Renders each entered amount with its 낱개/세트 label. A discount adds a
+// small red badge plus the original and discounted amount on the same row.
+function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily, priceSize, priceLabelSize, priceLineHeight, priceAlign, px }) {
   const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
-  const hasSetPrice = String(setPrice || "").trim() !== "";
+  const rows = [
+    { label: "낱개", value: price },
+    { label: "세트", value: setPrice },
+  ].filter(row => String(row.value || "").trim() !== "");
 
-  if (hasSetPrice) {
-    const rows = [
-      { label: "낱개", value: price },
-      { label: "세트", value: setPrice },
-    ];
+  if (rows.length > 0) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: flexAlign, gap: px(priceSize) * 0.16 }}>
         {discountPercent > 0 && (
-          <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 800, color: "#D64545", lineHeight: 1, whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 800, color: "#D64545", lineHeight: 1, whiteSpace: "nowrap" }}>
             {discountPercent}%할인
           </span>
         )}
@@ -1232,9 +1229,9 @@ function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily,
           const rowPrice = rowHasDiscount ? Math.round(rowOriginal * (100 - discountPercent) / 100) : row.value;
           return (
             <div key={row.label} style={{ display: "flex", alignItems: "baseline", justifyContent: priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center", gap: px(priceSize) * 0.2, width: "100%", whiteSpace: "nowrap" }}>
-              <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 700, color: "#8a7a6a", lineHeight: 1 }}>{row.label}</span>
-              {rowHasDiscount && <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 600, color: "#a89a8d", textDecoration: "line-through", textDecorationColor: "#D64545", lineHeight: 1 }}>{formatPriceText(rowOriginal)}</span>}
-              <strong style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.64, fontWeight: 900, color: priceColor, lineHeight: priceLineHeight }}>{formatPriceText(rowPrice) || "—"}</strong>
+              <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 700, color: "#8a7a6a", lineHeight: 1 }}>{row.label}</span>
+              {rowHasDiscount && <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 600, color: "#a89a8d", textDecoration: "line-through", textDecorationColor: "#D64545", lineHeight: 1 }}>{formatPriceText(rowOriginal)}</span>}
+              <strong style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: priceLineHeight }}>{formatPriceText(rowPrice) || "—"}</strong>
             </div>
           );
         })}
@@ -1242,27 +1239,9 @@ function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily,
     );
   }
 
-  if (!hasDiscount) {
-    return (
-      <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: priceAlign, lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
-        {formatPriceText(price) || "—"}
-      </div>
-    );
-  }
-
-  const discounted = Math.round(original * (100 - discountPercent) / 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: flexAlign, gap: px(priceSize) * 0.08 }}>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.4, fontWeight: 800, color: "#D64545", lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
-        {discountPercent}%할인
-      </span>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.52, fontWeight: 700, color: "#a89a8d", lineHeight: priceLineHeight,
-        textDecoration: "line-through", textDecorationColor: "#D64545", textDecorationThickness: "1.5px", whiteSpace: "nowrap" }}>
-        {formatPriceText(original)}
-      </span>
-      <span style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
-        {formatPriceText(discounted)}
-      </span>
+    <div style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, textAlign: priceAlign, lineHeight: priceLineHeight, whiteSpace: "nowrap" }}>
+      —
     </div>
   );
 }
@@ -1304,7 +1283,7 @@ function CardTextOverlay({ card, settings, px, custom }) {
         {originText || null}
       </div>
       <div style={{ ...absPosStyle(settings, type, "price"), textAlign: align.price }}>
-        <PriceBlock price={card.price} setPrice={card.setPrice} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
+        <PriceBlock price={card.price} setPrice={card.setPrice} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLabelSize={f.priceLabelSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
       </div>
       {showOrigin && (
         <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: colors.allergen, textAlign: align.allergen, lineHeight: lh.allergen,
@@ -1893,6 +1872,10 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
                 <p className="field-group-title">{field.label}</p>
                 <NumberInput label="크기" value={profile.fonts[field.sizeKey]} onChange={(v) => updateFont(field.sizeKey, v)}
                   min={field.min} max={field.max} step={0.5} unit="pt" />
+                {field.key === "price" && (
+                  <NumberInput label="낱개·세트 표기 크기" value={profile.fonts.priceLabelSize} onChange={(v) => updateFont("priceLabelSize", v)}
+                    min={4} max={14} step={0.5} unit="pt" />
+                )}
                 <NumberInput label="줄간격" value={profile.lineHeights[field.key]} onChange={(v) => updateLineHeight(field.key, v)}
                   min={0.8} max={2} step={0.05} unit="배" />
                 <FontFieldRow label="폰트" fieldKey={field.key} settings={settings} setSettings={setSettings}
