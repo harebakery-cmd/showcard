@@ -143,6 +143,10 @@
   .price-wrap{position:relative;margin-top:6px;}
   .price-wrap input{padding-right:28px;}
   .price-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted-foreground);}
+  .price-input-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+  .price-input-item{min-width:0;}
+  .price-input-item>span{display:block;font-size:9px;font-weight:700;color:var(--muted-foreground);margin-bottom:4px;}
+  .price-input-item .price-wrap{margin-top:0;}
   .discount-toggle{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;
     font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;}
   .discount-toggle:hover{border-color:#D64545;color:#D64545;}
@@ -506,6 +510,7 @@ function mergeLoadedProducts(list) {
       allergens: Array.from(new Set([...(current.allergens || []), ...(p.allergens || [])])),
       origin: current.origin && current.origin.length ? current.origin : (p.origin || []),
       price: current.price || p.price || "",
+      setPrice: current.setPrice || p.setPrice || "",
     });
   });
   return Array.from(byName.values());
@@ -668,6 +673,7 @@ function normalizeSavedCard(saved) {
     description: saved.description || "",
     origin: formatOriginText(savedOriginToText(saved.origin)),
     price: formatPriceText(saved.price || ""),
+    setPrice: formatPriceText(saved.setPrice || ""),
     allergens: Array.isArray(saved.allergens) ? saved.allergens : [],
     message: saved.message || "",
     discountPercent: Number(saved.discountPercent) || 0,
@@ -824,15 +830,16 @@ function originItemsToText(originArr) {
 }
 
 /* ═══════════════════ 엑셀 일괄 업로드 (관리 탭) ═══════════════════
-   제품명 / 가격 / 원산지 1~6순위 / 알레르기 유발물질을 담은 엑셀 한 장으로
-   products.json(제품명·가격·원산지·알레르기)과 origins.json(원산지 저장
+   제품명 / 낱개 금액 / 세트 금액 / 원산지 1~6순위 / 알레르기 유발물질을 담은 엑셀 한 장으로
+   products.json(제품명·금액·원산지·알레르기)과 origins.json(원산지 저장
    표기 목록)에 한 번에 반영한다. 신제품 등록 시스템과 같은 스키마
    (제품이름/판매금액/원산지[{rank,text}]/알레르기키=Yes|No)를 그대로 씀. */
 
 const BULK_UPLOAD_MAX_ORIGIN_RANKS = 6;
 const BULK_UPLOAD_HEADERS = {
   name: ["제품명", "제품이름"],
-  price: ["가격", "금액", "판매금액"],
+  price: ["낱개 금액", "낱개금액", "가격", "금액", "판매금액"],
+  setPrice: ["세트 금액", "세트금액", "세트 판매금액"],
   allergen: ["알레르기 유발물질", "알레르기유발물질", "알레르기"],
 };
 function bulkOriginHeader(rank) { return `원산지 ${rank}순위`; }
@@ -840,16 +847,16 @@ function bulkOriginHeader(rank) { return `원산지 ${rank}순위`; }
 // Builds and downloads the .xlsx template staff should fill in and re-upload.
 function downloadBulkUploadTemplate() {
   const headers = [
-    "제품명", "가격",
+    "제품명", "낱개 금액", "세트 금액",
     ...Array.from({ length: BULK_UPLOAD_MAX_ORIGIN_RANKS }, (_, i) => bulkOriginHeader(i + 1)),
     "알레르기 유발물질",
   ];
   const sampleRows = [
-    ["크로와상", 3500, "프랑스산 버터", "국산 밀가루", "", "", "", "", "우유,밀"],
-    ["호밀빵", 4200, "호밀가루(미국산)", "", "", "", "", "", ""],
+    ["크로와상", 3500, 10000, "프랑스산 버터", "국산 밀가루", "", "", "", "", "우유,밀"],
+    ["호밀빵", 4200, "", "호밀가루(미국산)", "", "", "", "", "", ""],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
-  ws["!cols"] = headers.map((_, i) => ({ wch: i === 0 ? 18 : i === 1 ? 8 : i < 2 + BULK_UPLOAD_MAX_ORIGIN_RANKS ? 20 : 28 }));
+  ws["!cols"] = headers.map((_, i) => ({ wch: i === 0 ? 18 : i <= 2 ? 10 : i < 3 + BULK_UPLOAD_MAX_ORIGIN_RANKS ? 20 : 28 }));
 
   // Reference sheet so staff can copy exact allergen spelling — matching
   // must be exact, since it maps 1:1 onto the fixed ALLERGENS key list.
@@ -884,6 +891,7 @@ async function parseBulkUploadFile(file) {
   };
   const nameIdx = findCol(BULK_UPLOAD_HEADERS.name);
   const priceIdx = findCol(BULK_UPLOAD_HEADERS.price);
+  const setPriceIdx = findCol(BULK_UPLOAD_HEADERS.setPrice);
   const allergenIdx = findCol(BULK_UPLOAD_HEADERS.allergen);
   const originIdxs = Array.from({ length: BULK_UPLOAD_MAX_ORIGIN_RANKS }, (_, i) =>
     header.findIndex(h => h === bulkOriginHeader(i + 1))
@@ -902,6 +910,8 @@ async function parseBulkUploadFile(file) {
 
     const priceRaw = priceIdx !== -1 ? String(row[priceIdx] || "").trim() : "";
     const priceNum = priceRaw ? Number(priceRaw.replace(/[^0-9.]/g, "")) : NaN;
+    const setPriceRaw = setPriceIdx !== -1 ? String(row[setPriceIdx] || "").trim() : "";
+    const setPriceNum = setPriceRaw ? Number(setPriceRaw.replace(/[^0-9.]/g, "")) : NaN;
 
     const originTexts = originIdxs
       .map(idx => (idx !== -1 ? String(row[idx] || "").trim() : ""))
@@ -916,6 +926,7 @@ async function parseBulkUploadFile(file) {
       row: i + 1,
       name,
       price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null,
+      setPrice: Number.isFinite(setPriceNum) && setPriceNum > 0 ? setPriceNum : null,
       originTexts,
       matchedAllergens,
       unknownAllergens,
@@ -953,6 +964,7 @@ async function applyBulkUpload(parsedRows) {
 
     const update = { 제품이름: row.name, 원산지: originArr };
     if (row.price != null) update.판매금액 = row.price;
+    if (row.setPrice != null) update.세트금액 = row.setPrice;
     ALLERGENS.forEach(a => { update[a] = row.matchedAllergens.includes(a) ? "Yes" : "No"; });
 
     const existingKey = nameToKey.get(row.name);
@@ -1196,10 +1208,39 @@ function formatOriginText(value) {
 
 // Renders either a plain price, or — when a discount % is set — a small red
 // discount badge + strikethrough original price + bold discounted price.
-function PriceBlock({ price, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, priceAlign, px }) {
+function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily, priceSize, priceLineHeight, priceAlign, px }) {
   const original = parsePriceNumber(price);
   const hasDiscount = discountPercent > 0 && !isNaN(original) && original > 0;
   const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
+  const hasSetPrice = String(setPrice || "").trim() !== "";
+
+  if (hasSetPrice) {
+    const rows = [
+      { label: "낱개", value: price },
+      { label: "세트", value: setPrice },
+    ];
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: flexAlign, gap: px(priceSize) * 0.16 }}>
+        {discountPercent > 0 && (
+          <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 800, color: "#D64545", lineHeight: 1, whiteSpace: "nowrap" }}>
+            {discountPercent}%할인
+          </span>
+        )}
+        {rows.map(row => {
+          const rowOriginal = parsePriceNumber(row.value);
+          const rowHasDiscount = discountPercent > 0 && !isNaN(rowOriginal) && rowOriginal > 0;
+          const rowPrice = rowHasDiscount ? Math.round(rowOriginal * (100 - discountPercent) / 100) : row.value;
+          return (
+            <div key={row.label} style={{ display: "flex", alignItems: "baseline", justifyContent: priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center", gap: px(priceSize) * 0.2, width: "100%", whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 700, color: "#8a7a6a", lineHeight: 1 }}>{row.label}</span>
+              {rowHasDiscount && <span style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.34, fontWeight: 600, color: "#a89a8d", textDecoration: "line-through", textDecorationColor: "#D64545", lineHeight: 1 }}>{formatPriceText(rowOriginal)}</span>}
+              <strong style={{ fontFamily: priceFamily, fontSize: px(priceSize) * 0.64, fontWeight: 900, color: priceColor, lineHeight: priceLineHeight }}>{formatPriceText(rowPrice) || "—"}</strong>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   if (!hasDiscount) {
     return (
@@ -1263,7 +1304,7 @@ function CardTextOverlay({ card, settings, px, custom }) {
         {originText || null}
       </div>
       <div style={{ ...absPosStyle(settings, type, "price"), textAlign: align.price }}>
-        <PriceBlock price={card.price} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
+        <PriceBlock price={card.price} setPrice={card.setPrice} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
       </div>
       {showOrigin && (
         <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: colors.allergen, textAlign: align.allergen, lineHeight: lh.allergen,
@@ -1706,7 +1747,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
       const confirmMsg =
         `총 ${parsedRows.length}개 제품을 업로드합니다` +
         (skipped.length > 0 ? ` (제품명이 비어 건너뛴 행 ${skipped.length}개 있음)` : "") +
-        `.\n제품명·원산지·가격·알레르기가 저장되고, 원산지는 "저장된 표기" 목록에도 추가됩니다.\n계속할까요?`;
+        `.\n제품명·원산지·낱개/세트 금액·알레르기가 저장되고, 원산지는 "저장된 표기" 목록에도 추가됩니다.\n계속할까요?`;
       if (!window.confirm(confirmMsg)) {
         setBulkStatus("idle");
         e.target.value = "";
@@ -1762,11 +1803,11 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
         <div className="manage-section-head">
           <IconUpload size={15} style={{ color: "#B5762A" }} />
           <h2>제품 엑셀 일괄 업로드</h2>
-          <span className="sub">— 제품명 · 가격 · 원산지 1~6순위 · 알레르기 유발물질을 엑셀로 한 번에 저장하세요</span>
+          <span className="sub">— 제품명 · 낱개/세트 금액 · 원산지 1~6순위 · 알레르기 유발물질을 엑셀로 한 번에 저장하세요</span>
         </div>
         <div className="bulk-upload-card">
           <p className="bulk-upload-desc">
-            틀을 내려받아 제품명 / 가격 / 원산지 순위(최소 1개, 최대 6개) / 알레르기 유발물질을 채운 뒤 업로드하면,
+            틀을 내려받아 제품명 / 낱개 금액 / 세트 금액(선택) / 원산지 순위(최소 1개, 최대 6개) / 알레르기 유발물질을 채운 뒤 업로드하면,
             제품 목록("알레르기 자료에서 자동 불러오기")과 "저장된 표기" 원산지 목록에 한 번에 반영됩니다.
             이미 있는 제품명과 같으면 새로 만들지 않고 해당 제품 정보가 갱신됩니다.
           </p>
@@ -1791,7 +1832,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
             <div className="bulk-result bulk-result-ok">
               <p><IconCheck size={12} /> 업로드 완료 — 신규 {bulkResult.created}건 · 갱신 {bulkResult.updated}건 · 원산지 새 표기 {bulkResult.originsAdded}건 저장됨</p>
               {bulkResult.priceSkipped > 0 && (
-                <p className="bulk-result-sub">가격이 비어 있거나 인식되지 않아 건너뛴 제품 {bulkResult.priceSkipped}건 (기존 가격 유지)</p>
+                <p className="bulk-result-sub">낱개 금액이 비어 있거나 인식되지 않아 건너뛴 제품 {bulkResult.priceSkipped}건 (기존 금액 유지)</p>
               )}
               {bulkResult.skipped && bulkResult.skipped.length > 0 && (
                 <p className="bulk-result-sub">제품명이 없어 건너뛴 행: {bulkResult.skipped.map(s => s.row).join(", ")}</p>
@@ -1880,6 +1921,7 @@ function App() {
   const [description, setDescription] = useState("");
   const [origin, setOrigin] = useState("");
   const [price, setPrice] = useState("");
+  const [bundlePrice, setBundlePrice] = useState("");
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState("");
   const [message, setMessage] = useState("");
@@ -1966,7 +2008,8 @@ function App() {
     setSavingCard(true);
     const normalizedOrigin = formatOriginText(origin);
     const normalizedPrice = formatPriceText(price);
-    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, allergens, message,
+    const normalizedSetPrice = formatPriceText(bundlePrice);
+    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, allergens, message,
       discountPercent: Number(discountPercent) || 0, savedAt: Date.now() };
     try {
       const res = await fetch(SAVED_CARDS_BASE_URL + ".json", {
@@ -1993,7 +2036,7 @@ function App() {
   function loadSavedToForm(saved) {
     const card = normalizeSavedCard(saved);
     setCardType(card.type); setName(card.name); setDescription(card.description);
-    setOrigin(card.origin); setPrice(card.price); setAllergens(card.allergens);
+    setOrigin(card.origin); setPrice(card.price); setBundlePrice(card.setPrice || ""); setAllergens(card.allergens);
     setMessage(card.message); setDiscountPercent(card.discountPercent ? String(card.discountPercent) : "");
     setDiscountOpen(!!card.discountPercent);
     setRightTab("preview");
@@ -2008,6 +2051,7 @@ function App() {
       origin: formatOriginText(originItemsToText(product.origin)),
       originLabelVariant: normalizeOriginLabelVariant(product.originLabelVariant),
       price: formatPriceText(product.price || ""),
+      setPrice: formatPriceText(product.setPrice || ""),
       allergens: Array.isArray(product.allergens) ? product.allergens : [],
       message: "",
       discountPercent: 0,
@@ -2355,6 +2399,7 @@ function App() {
             allergens: ALLERGENS.filter(a => p[a] === "Yes"),
             origin: p["원산지"] || [],
             price: p["판매금액"] != null ? String(p["판매금액"]) : "",
+            setPrice: p["세트금액"] != null ? String(p["세트금액"]) : "",
           })))
           .sort((a, b) => a.name.localeCompare(b.name, "ko"));
         setProducts(list);
@@ -2363,7 +2408,7 @@ function App() {
       .finally(() => setProductsLoading(false));
   }
 
-  const currentCard = { id: "current", type: cardType, name, description, origin, price, allergens, message, discountPercent: Number(discountPercent) || 0 };
+  const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, allergens, message, discountPercent: Number(discountPercent) || 0 };
 
   const filteredProducts = useMemo(() => {
     const q = dbSearch.trim().toLowerCase();
@@ -2392,19 +2437,20 @@ function App() {
   function loadProduct(p) {
     setName(p.name);
     setAllergens(p.allergens);
-    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
+    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setBundlePrice(p.setPrice || ""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
     setDbOpen(false); setDbSearch(""); setOriginOpen(false);
   }
   function resetForm() {
-    setName(""); setDescription(""); setOrigin(""); setPrice(""); setAllergens([]); setMessage("");
+    setName(""); setDescription(""); setOrigin(""); setPrice(""); setBundlePrice(""); setAllergens([]); setMessage("");
     setDiscountPercent(""); setDiscountOpen(false); setOriginOpen(false);
   }
   function addToQueue() {
     if (!name.trim()) return;
     const normalizedOrigin = formatOriginText(origin);
     const normalizedPrice = formatPriceText(price);
+    const normalizedSetPrice = formatPriceText(bundlePrice);
     saveOriginIfNew(normalizedOrigin);
-    setQueue(prev => [...prev, { ...currentCard, origin: normalizedOrigin, price: normalizedPrice, id: uid() }]);
+    setQueue(prev => [...prev, { ...currentCard, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, id: uid() }]);
     setRightTab("queue");
   }
 
@@ -2597,9 +2643,21 @@ function App() {
                       <IconPercent size={11} /> 할인
                     </button>
                   </div>
-                  <div className="price-wrap">
-                    <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" />
-                    <span className="price-suffix">원</span>
+                  <div className="price-input-grid">
+                    <div className="price-input-item">
+                      <span>낱개 금액</span>
+                      <div className="price-wrap">
+                        <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" aria-label="낱개 금액" />
+                        <span className="price-suffix">원</span>
+                      </div>
+                    </div>
+                    <div className="price-input-item">
+                      <span>세트 금액 (선택)</span>
+                      <div className="price-wrap">
+                        <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
+                        <span className="price-suffix">원</span>
+                      </div>
+                    </div>
                   </div>
                   {discountOpen && (
                     <div className="discount-wrap">
@@ -2697,7 +2755,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${formatPriceText(card.price)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · 낱개 ₩${formatPriceText(card.price)}`}{card.setPrice && ` · 세트 ₩${formatPriceText(card.setPrice)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
@@ -2737,7 +2795,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ₩${formatPriceText(card.price)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · 낱개 ₩${formatPriceText(card.price)}`}{card.setPrice && ` · 세트 ₩${formatPriceText(card.setPrice)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <div className="saved-item-actions">
