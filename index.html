@@ -449,8 +449,10 @@
     #print-root{display:block !important;}
     #print-area{display:block !important;}
     #print-area{width:210mm;min-height:297mm;padding:12mm 10mm;box-sizing:border-box;background:#fff;}
+    #print-area.origin-label-print-mode{padding:0;}
     .print-grid{display:flex;flex-wrap:wrap;gap:0;align-items:flex-start;align-content:flex-start;}
     .originlabel-print-grid{display:flex;flex-direction:column;gap:0;}
+    .originlabel-print-sheet{width:210mm;min-height:297mm;padding:12mm 10mm;box-sizing:border-box;}
     .originlabel-print-sheet:last-child{break-after:auto;page-break-after:auto;}
     @page{size:A4 portrait;margin:0;}
   }
@@ -2442,7 +2444,7 @@ function App() {
   return (
     <div className="app">
       {createPortal(
-        <div id="print-area">
+        <div id="print-area" className={mainTab === "origin-label" ? "origin-label-print-mode" : ""}>
           {mainTab === "origin-label" ? (
             <div className="originlabel-print-grid">
               {originLabelItems.filter(item => (item.images || []).length > 0).map(item => (
