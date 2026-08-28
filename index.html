@@ -1916,7 +1916,7 @@ function App() {
   const [price, setPrice] = useState("");
   const [bundlePrice, setBundlePrice] = useState("");
   const [priceLabel, setPriceLabel] = useState("낱개");
-  const [setPriceLabel, setSetPriceLabel] = useState("세트");
+  const [bundlePriceLabel, setBundlePriceLabel] = useState("세트");
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState("");
   const [message, setMessage] = useState("");
@@ -2004,7 +2004,7 @@ function App() {
     const normalizedOrigin = formatOriginText(origin);
     const normalizedPrice = formatPriceText(price);
     const normalizedSetPrice = formatPriceText(bundlePrice);
-    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, priceLabel, setPriceLabel, allergens, message,
+    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, priceLabel, setPriceLabel: bundlePriceLabel, allergens, message,
       discountPercent: Number(discountPercent) || 0, savedAt: Date.now() };
     try {
       const res = await fetch(SAVED_CARDS_BASE_URL + ".json", {
@@ -2031,7 +2031,7 @@ function App() {
   function loadSavedToForm(saved) {
     const card = normalizeSavedCard(saved);
     setCardType(card.type); setName(card.name); setDescription(card.description);
-    setOrigin(card.origin); setPrice(card.price); setBundlePrice(card.setPrice || ""); setPriceLabel(card.priceLabel); setSetPriceLabel(card.setPriceLabel); setAllergens(card.allergens);
+    setOrigin(card.origin); setPrice(card.price); setBundlePrice(card.setPrice || ""); setPriceLabel(card.priceLabel); setBundlePriceLabel(card.setPriceLabel); setAllergens(card.allergens);
     setMessage(card.message); setDiscountPercent(card.discountPercent ? String(card.discountPercent) : "");
     setDiscountOpen(!!card.discountPercent);
     setRightTab("preview");
@@ -2405,7 +2405,7 @@ function App() {
       .finally(() => setProductsLoading(false));
   }
 
-  const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, priceLabel, setPriceLabel, allergens, message, discountPercent: Number(discountPercent) || 0 };
+  const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, priceLabel, setPriceLabel: bundlePriceLabel, allergens, message, discountPercent: Number(discountPercent) || 0 };
 
   const filteredProducts = useMemo(() => {
     const q = dbSearch.trim().toLowerCase();
@@ -2434,11 +2434,11 @@ function App() {
   function loadProduct(p) {
     setName(p.name);
     setAllergens(p.allergens);
-    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setBundlePrice(p.setPrice || ""); setPriceLabel("낱개"); setSetPriceLabel("세트"); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
+    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setBundlePrice(p.setPrice || ""); setPriceLabel("낱개"); setBundlePriceLabel("세트"); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
     setDbOpen(false); setDbSearch(""); setOriginOpen(false);
   }
   function resetForm() {
-    setName(""); setDescription(""); setOrigin(""); setPrice(""); setBundlePrice(""); setPriceLabel("낱개"); setSetPriceLabel("세트"); setAllergens([]); setMessage("");
+    setName(""); setDescription(""); setOrigin(""); setPrice(""); setBundlePrice(""); setPriceLabel("낱개"); setBundlePriceLabel("세트"); setAllergens([]); setMessage("");
     setDiscountPercent(""); setDiscountOpen(false); setOriginOpen(false);
   }
   function addToQueue() {
@@ -2643,7 +2643,7 @@ function App() {
                   <div className="price-input-grid">
                     <div className="price-input-item">
                       <span>세트 금액 (상단 · 선택)</span>
-                      <input className="price-label-edit" value={setPriceLabel} onChange={e => setSetPriceLabel(e.target.value)} maxLength={12} placeholder="세트" aria-label="세트 표시 문구" />
+                      <input className="price-label-edit" value={bundlePriceLabel} onChange={e => setBundlePriceLabel(e.target.value)} maxLength={12} placeholder="세트" aria-label="세트 표시 문구" />
                       <div className="price-wrap">
                         <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
                         <span className="price-suffix">원</span>
