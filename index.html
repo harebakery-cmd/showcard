@@ -146,6 +146,8 @@
   .price-input-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
   .price-input-item{min-width:0;}
   .price-input-item>span{display:block;font-size:9px;font-weight:700;color:var(--muted-foreground);margin-bottom:4px;}
+  .price-label-edit{width:100%;margin-bottom:5px;padding:6px 8px !important;font-size:10px !important;
+    font-weight:700;background:#FFFDF8 !important;}
   .price-input-item .price-wrap{margin-top:0;}
   .discount-toggle{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;
     font-weight:700;color:#5a4a3a;border:1px solid var(--border);background:#fff;transition:all .15s;}
@@ -571,6 +573,7 @@ const DEFAULT_STYLE_PROFILE = {
     description: "#8a7a6a",
     name: "#231916",
     price: "#C9926B",
+    priceLabel: "#8a7a6a",
     origin: "#595757",
     allergen: "#888070",
   },
@@ -623,13 +626,13 @@ const DEFAULT_DESIGNS = Object.fromEntries(
 // Product name and price are intentionally identical across every type here —
 // this gallery is for comparing card DESIGNS side by side, not sample content.
 const SAMPLE_CARDS = {
-  standard:   { id: "s", type: "standard",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
-  small:      { id: "s", type: "small",      name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["밀"],              message: "" },
-  cookie:     { id: "s", type: "cookie",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["호두"],             message: "" },
-  "no-origin":{ id: "s", type: "no-origin",  name: "제품명", description: "제품 설명 예시", origin: "",                    price: "0,0", allergens: [],                   message: "안내 메시지 표기란입니다" },
-  season:          { id: "s", type: "season",          name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
-  "season-small":  { id: "s", type: "season-small",    name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
-  "season-cookie": { id: "s", type: "season-cookie",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", allergens: ["계란","우유","밀"], message: "" },
+  standard:   { id: "s", type: "standard",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
+  small:      { id: "s", type: "small",      name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["밀"],              message: "" },
+  cookie:     { id: "s", type: "cookie",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["호두"],             message: "" },
+  "no-origin":{ id: "s", type: "no-origin",  name: "제품명", description: "제품 설명 예시", origin: "",                    price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: [],                   message: "안내 메시지 표기란입니다" },
+  season:          { id: "s", type: "season",          name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
+  "season-small":  { id: "s", type: "season-small",    name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
+  "season-cookie": { id: "s", type: "season-cookie",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
 };
 
 /* ═══════════════════════ Helpers ═══════════════════════ */
@@ -676,6 +679,8 @@ function normalizeSavedCard(saved) {
     origin: formatOriginText(savedOriginToText(saved.origin)),
     price: formatPriceText(saved.price || ""),
     setPrice: formatPriceText(saved.setPrice || ""),
+    priceLabel: saved.priceLabel == null ? "낱개" : String(saved.priceLabel),
+    setPriceLabel: saved.setPriceLabel == null ? "세트" : String(saved.setPriceLabel),
     allergens: Array.isArray(saved.allergens) ? saved.allergens : [],
     message: saved.message || "",
     discountPercent: Number(saved.discountPercent) || 0,
@@ -1208,13 +1213,13 @@ function formatOriginText(value) {
   return splitTopLevelList(value).join(", ");
 }
 
-// Renders each entered amount with its 낱개/세트 label. A discount adds a
+// Renders the set amount first and the individual amount second. A discount adds a
 // small red badge plus the original and discounted amount on the same row.
-function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily, priceSize, priceLabelSize, priceLineHeight, priceAlign, px }) {
+function PriceBlock({ price, setPrice, priceLabel, setPriceLabel, discountPercent, priceColor, priceLabelColor, priceFamily, priceSize, priceLabelSize, priceLineHeight, priceAlign, px }) {
   const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
   const rows = [
-    { label: "낱개", value: price },
-    { label: "세트", value: setPrice },
+    { key: "set", label: setPriceLabel == null ? "세트" : setPriceLabel, value: setPrice },
+    { key: "individual", label: priceLabel == null ? "낱개" : priceLabel, value: price },
   ].filter(row => String(row.value || "").trim() !== "");
 
   if (rows.length > 0) {
@@ -1230,8 +1235,8 @@ function PriceBlock({ price, setPrice, discountPercent, priceColor, priceFamily,
           const rowHasDiscount = discountPercent > 0 && !isNaN(rowOriginal) && rowOriginal > 0;
           const rowPrice = rowHasDiscount ? Math.round(rowOriginal * (100 - discountPercent) / 100) : row.value;
           return (
-            <div key={row.label} style={{ display: "flex", alignItems: "baseline", justifyContent: priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center", gap: px(priceSize) * 0.2, width: "100%", whiteSpace: "nowrap" }}>
-              <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 700, color: "#8a7a6a", lineHeight: 1 }}>{row.label}</span>
+            <div key={row.key} style={{ display: "flex", alignItems: "baseline", justifyContent: priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center", gap: px(priceSize) * 0.2, width: "100%", whiteSpace: "nowrap" }}>
+              {row.label !== "" && <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 700, color: priceLabelColor, lineHeight: 1 }}>{row.label}</span>}
               {rowHasDiscount && <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 600, color: "#a89a8d", textDecoration: "line-through", textDecorationColor: "#D64545", lineHeight: 1 }}>{formatPriceText(rowOriginal)}</span>}
               <strong style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: priceLineHeight }}>{formatPriceText(rowPrice) || "—"}</strong>
             </div>
@@ -1285,7 +1290,7 @@ function CardTextOverlay({ card, settings, px, custom }) {
         {originText || null}
       </div>
       <div style={{ ...absPosStyle(settings, type, "price"), textAlign: align.price }}>
-        <PriceBlock price={card.price} setPrice={card.setPrice} discountPercent={card.discountPercent} priceColor={colors.price} priceFamily={priceFamily} priceSize={f.priceSize} priceLabelSize={f.priceLabelSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
+        <PriceBlock price={card.price} setPrice={card.setPrice} priceLabel={card.priceLabel} setPriceLabel={card.setPriceLabel} discountPercent={card.discountPercent} priceColor={colors.price} priceLabelColor={colors.priceLabel} priceFamily={priceFamily} priceSize={f.priceSize} priceLabelSize={f.priceLabelSize} priceLineHeight={lh.price} priceAlign={align.price} px={px} />
       </div>
       {showOrigin && (
         <div style={{ ...absPosStyle(settings, type, "allergen"), fontFamily: allergenFamily, fontSize: px(f.allergenSize), color: colors.allergen, textAlign: align.allergen, lineHeight: lh.allergen,
@@ -1875,14 +1880,17 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
                 <NumberInput label="크기" value={profile.fonts[field.sizeKey]} onChange={(v) => updateFont(field.sizeKey, v)}
                   min={field.min} max={field.max} step={0.5} unit="pt" />
                 {field.key === "price" && (
-                  <NumberInput label="낱개·세트 표기 크기" value={profile.fonts.priceLabelSize} onChange={(v) => updateFont("priceLabelSize", v)}
-                    min={4} max={14} step={0.5} unit="pt" />
+                  <>
+                    <NumberInput label="세트·낱개 표기 크기" value={profile.fonts.priceLabelSize} onChange={(v) => updateFont("priceLabelSize", v)}
+                      min={4} max={14} step={0.5} unit="pt" />
+                    <ColorInput label="세트·낱개 단어 색상" value={profile.colors.priceLabel} onChange={(v) => updateColor("priceLabel", v)} />
+                  </>
                 )}
                 <NumberInput label="줄간격" value={profile.lineHeights[field.key]} onChange={(v) => updateLineHeight(field.key, v)}
                   min={0.8} max={2} step={0.05} unit="배" />
                 <FontFieldRow label="폰트" fieldKey={field.key} settings={settings} setSettings={setSettings}
                   styleMode={manageMode} profile={profile} />
-                <ColorInput label="글자 색상" value={profile.colors[field.key]} onChange={(v) => updateColor(field.key, v)} />
+                <ColorInput label={field.key === "price" ? "금액 색상" : "글자 색상"} value={profile.colors[field.key]} onChange={(v) => updateColor(field.key, v)} />
                 <AlignmentInput value={profile.alignments[field.key]} onChange={(v) => updateAlignment(field.key, v)} />
               </div>
             ))}
@@ -1907,6 +1915,8 @@ function App() {
   const [origin, setOrigin] = useState("");
   const [price, setPrice] = useState("");
   const [bundlePrice, setBundlePrice] = useState("");
+  const [priceLabel, setPriceLabel] = useState("낱개");
+  const [setPriceLabel, setSetPriceLabel] = useState("세트");
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState("");
   const [message, setMessage] = useState("");
@@ -1994,7 +2004,7 @@ function App() {
     const normalizedOrigin = formatOriginText(origin);
     const normalizedPrice = formatPriceText(price);
     const normalizedSetPrice = formatPriceText(bundlePrice);
-    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, allergens, message,
+    const record = { type: cardType, name, description, origin: normalizedOrigin, price: normalizedPrice, setPrice: normalizedSetPrice, priceLabel, setPriceLabel, allergens, message,
       discountPercent: Number(discountPercent) || 0, savedAt: Date.now() };
     try {
       const res = await fetch(SAVED_CARDS_BASE_URL + ".json", {
@@ -2021,7 +2031,7 @@ function App() {
   function loadSavedToForm(saved) {
     const card = normalizeSavedCard(saved);
     setCardType(card.type); setName(card.name); setDescription(card.description);
-    setOrigin(card.origin); setPrice(card.price); setBundlePrice(card.setPrice || ""); setAllergens(card.allergens);
+    setOrigin(card.origin); setPrice(card.price); setBundlePrice(card.setPrice || ""); setPriceLabel(card.priceLabel); setSetPriceLabel(card.setPriceLabel); setAllergens(card.allergens);
     setMessage(card.message); setDiscountPercent(card.discountPercent ? String(card.discountPercent) : "");
     setDiscountOpen(!!card.discountPercent);
     setRightTab("preview");
@@ -2037,6 +2047,8 @@ function App() {
       originLabelVariant: normalizeOriginLabelVariant(product.originLabelVariant),
       price: formatPriceText(product.price || ""),
       setPrice: formatPriceText(product.setPrice || ""),
+      priceLabel: "낱개",
+      setPriceLabel: "세트",
       allergens: Array.isArray(product.allergens) ? product.allergens : [],
       message: "",
       discountPercent: 0,
@@ -2393,7 +2405,7 @@ function App() {
       .finally(() => setProductsLoading(false));
   }
 
-  const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, allergens, message, discountPercent: Number(discountPercent) || 0 };
+  const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, priceLabel, setPriceLabel, allergens, message, discountPercent: Number(discountPercent) || 0 };
 
   const filteredProducts = useMemo(() => {
     const q = dbSearch.trim().toLowerCase();
@@ -2422,11 +2434,11 @@ function App() {
   function loadProduct(p) {
     setName(p.name);
     setAllergens(p.allergens);
-    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setBundlePrice(p.setPrice || ""); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
+    setOrigin(originItemsToText(p.origin)); setPrice(p.price || ""); setBundlePrice(p.setPrice || ""); setPriceLabel("낱개"); setSetPriceLabel("세트"); setMessage(""); setDescription(""); setDiscountPercent(""); setDiscountOpen(false);
     setDbOpen(false); setDbSearch(""); setOriginOpen(false);
   }
   function resetForm() {
-    setName(""); setDescription(""); setOrigin(""); setPrice(""); setBundlePrice(""); setAllergens([]); setMessage("");
+    setName(""); setDescription(""); setOrigin(""); setPrice(""); setBundlePrice(""); setPriceLabel("낱개"); setSetPriceLabel("세트"); setAllergens([]); setMessage("");
     setDiscountPercent(""); setDiscountOpen(false); setOriginOpen(false);
   }
   function addToQueue() {
@@ -2630,16 +2642,18 @@ function App() {
                   </div>
                   <div className="price-input-grid">
                     <div className="price-input-item">
-                      <span>낱개 금액</span>
+                      <span>세트 금액 (상단 · 선택)</span>
+                      <input className="price-label-edit" value={setPriceLabel} onChange={e => setSetPriceLabel(e.target.value)} maxLength={12} placeholder="세트" aria-label="세트 표시 문구" />
                       <div className="price-wrap">
-                        <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" aria-label="낱개 금액" />
+                        <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
                         <span className="price-suffix">원</span>
                       </div>
                     </div>
                     <div className="price-input-item">
-                      <span>세트 금액 (선택)</span>
+                      <span>낱개 금액 (하단)</span>
+                      <input className="price-label-edit" value={priceLabel} onChange={e => setPriceLabel(e.target.value)} maxLength={12} placeholder="낱개" aria-label="낱개 표시 문구" />
                       <div className="price-wrap">
-                        <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
+                        <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" aria-label="낱개 금액" />
                         <span className="price-suffix">원</span>
                       </div>
                     </div>
@@ -2740,7 +2754,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · 낱개 ₩${formatPriceText(card.price)}`}{card.setPrice && ` · 세트 ₩${formatPriceText(card.setPrice)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
@@ -2780,7 +2794,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · 낱개 ₩${formatPriceText(card.price)}`}{card.setPrice && ` · 세트 ₩${formatPriceText(card.setPrice)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <div className="saved-item-actions">
