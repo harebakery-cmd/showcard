@@ -1213,13 +1213,13 @@ function formatOriginText(value) {
   return splitTopLevelList(value).join(", ");
 }
 
-// Renders the set amount first and the individual amount second. A discount adds a
+// Renders the individual amount first and the optional set amount second. A discount adds a
 // small red badge plus the original and discounted amount on the same row.
 function PriceBlock({ price, setPrice, priceLabel, setPriceLabel, discountPercent, priceColor, priceLabelColor, priceFamily, priceSize, priceLabelSize, priceLineHeight, priceAlign, px }) {
   const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
   const rows = [
-    { key: "set", label: setPriceLabel == null ? "세트" : setPriceLabel, value: setPrice },
     { key: "individual", label: priceLabel == null ? "낱개" : priceLabel, value: price },
+    { key: "set", label: setPriceLabel == null ? "세트" : setPriceLabel, value: setPrice },
   ].filter(row => String(row.value || "").trim() !== "");
 
   if (rows.length > 0) {
@@ -2642,18 +2642,18 @@ function App() {
                   </div>
                   <div className="price-input-grid">
                     <div className="price-input-item">
-                      <span>세트 금액 (상단 · 선택)</span>
-                      <input className="price-label-edit" value={bundlePriceLabel} onChange={e => setBundlePriceLabel(e.target.value)} maxLength={12} placeholder="세트" aria-label="세트 표시 문구" />
+                      <span>낱개 금액 (기본)</span>
+                      <input className="price-label-edit" value={priceLabel} onChange={e => setPriceLabel(e.target.value)} maxLength={12} placeholder="낱개" aria-label="낱개 표시 문구" />
                       <div className="price-wrap">
-                        <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
+                        <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" aria-label="낱개 금액" />
                         <span className="price-suffix">원</span>
                       </div>
                     </div>
                     <div className="price-input-item">
-                      <span>낱개 금액 (하단)</span>
-                      <input className="price-label-edit" value={priceLabel} onChange={e => setPriceLabel(e.target.value)} maxLength={12} placeholder="낱개" aria-label="낱개 표시 문구" />
+                      <span>세트 금액 (하단 · 선택)</span>
+                      <input className="price-label-edit" value={bundlePriceLabel} onChange={e => setBundlePriceLabel(e.target.value)} maxLength={12} placeholder="세트" aria-label="세트 표시 문구" />
                       <div className="price-wrap">
-                        <input value={price} onChange={e => setPrice(e.target.value)} onBlur={() => setPrice(formatPriceText(price))} placeholder="예) 3,800" aria-label="낱개 금액" />
+                        <input value={bundlePrice} onChange={e => setBundlePrice(e.target.value)} onBlur={() => setBundlePrice(formatPriceText(bundlePrice))} placeholder="예) 10,000" aria-label="세트 금액" />
                         <span className="price-suffix">원</span>
                       </div>
                     </div>
@@ -2754,7 +2754,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <button className="queue-del" onClick={() => setQueue(prev => prev.filter(c => c.id !== card.id))}>
@@ -2794,7 +2794,7 @@ function App() {
                             </div>
                             <div className="queue-info">
                               <p className="queue-name">{card.name}</p>
-                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}</p>
+                              <p className="queue-sub">{CARD_TYPE_LIST.find(c => c.id === card.type)?.label}{card.price && ` · ${card.priceLabel == null ? "낱개" : card.priceLabel} ₩${formatPriceText(card.price)}`}{card.setPrice && ` · ${card.setPriceLabel == null ? "세트" : card.setPriceLabel} ₩${formatPriceText(card.setPrice)}`}</p>
                               {card.allergens && card.allergens.length > 0 && <p className="queue-allergen">{getAllergenLabels(card.allergens)}</p>}
                             </div>
                             <div className="saved-item-actions">
