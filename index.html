@@ -1931,6 +1931,7 @@ function App() {
   const [allergens, setAllergens] = useState([]);
   const [queue, setQueue] = useState([]);
   const [bulkStore, setBulkStore] = useState("");
+  const [bulkCategory, setBulkCategory] = useState("");
   const [stores, setStores] = useState([]);
   const [storesError, setStoresError] = useState(null);
   const [bulkPrinting, setBulkPrinting] = useState(false);
@@ -2472,7 +2473,13 @@ function App() {
     setRightTab("queue");
   }
 
-  const storeProducts = bulkStore ? products.filter(p => (p.stores || []).includes(bulkStore)) : [];
+  const productCategory = p => String(p.category || "").trim() || "미분류";
+  const bulkCategories = [...new Set(products.map(productCategory))].sort((a, b) => a.localeCompare(b, "ko"));
+  const bulkProducts = products.filter(p =>
+    (!bulkStore || (p.stores || []).includes(bulkStore)) &&
+    (!bulkCategory || productCategory(p) === bulkCategory)
+  );
+  const bulkScope = [bulkStore ? displayStoreName(bulkStore) : "전체 점포", bulkCategory || "전체 카테고리"].join(" · ");
   async function printProducts(list) {
     if (!list.length || productsLoading || productsError || bulkPrinting) return;
     setBulkPrinting(true);
@@ -2558,20 +2565,24 @@ function App() {
                 </section>
 
                 <section>
-                  <span className="label-eyebrow">제품 전체 출력</span>
+                  <span className="label-eyebrow">점포 · 카테고리별 출력</span>
                   <div style={{display:"grid", gap:8, marginBottom:18}}>
-                    <button className="btn-add" disabled={productsLoading || !!productsError || !products.length || bulkPrinting} onClick={() => printProducts(products)}>
-                      {bulkPrinting ? "인쇄 준비 중…" : `전제품 출력하기 (${products.length}종)`}
-                    </button>
-                    <select aria-label="쇼카드 출력 점포" value={bulkStore} onChange={e => setBulkStore(e.target.value)} disabled={bulkPrinting || !!storesError} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
-                      <option value="">점포를 선택하세요</option>
+                    <label htmlFor="bulk-store" style={{fontSize:12}}>점포</label>
+                    <select id="bulk-store" aria-label="쇼카드 출력 점포" value={bulkStore} onChange={e => setBulkStore(e.target.value)} disabled={bulkPrinting || !!storesError} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
+                      <option value="">전체 점포</option>
                       {stores.map(store => <option key={store} value={store}>{displayStoreName(store)}</option>)}
                     </select>
-                    <button className="btn-add" disabled={!storeProducts.length || productsLoading || !!productsError || !!storesError || bulkPrinting} onClick={() => printProducts(storeProducts)}>
-                      {bulkStore ? `${displayStoreName(bulkStore)} 제품 전체 출력하기 (${storeProducts.length}종)` : "점포 제품 전체 출력하기"}
+                    <label htmlFor="bulk-category" style={{fontSize:12}}>카테고리</label>
+                    <select id="bulk-category" aria-label="쇼카드 출력 카테고리" value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} disabled={bulkPrinting || productsLoading} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
+                      <option value="">전체 카테고리</option>
+                      {bulkCategories.map(category => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                    <p role="status" style={{fontSize:12,lineHeight:1.6,margin:0}}>{bulkScope} · {bulkProducts.length}종</p>
+                    <button className="btn-add" disabled={!bulkProducts.length || productsLoading || !!productsError || (!!bulkStore && !!storesError) || bulkPrinting} onClick={() => printProducts(bulkProducts)}>
+                      {bulkPrinting ? "인쇄 준비 중…" : `${!bulkStore && !bulkCategory ? "전제품" : "선택 조건 제품"} 출력하기 (${bulkProducts.length}종)`}
                     </button>
                     <p style={{fontSize:11,lineHeight:1.6,color:"#7D6B5A",margin:0}}>선택한 카드 종류로 제품마다 1장씩 출력합니다. 숨김 제품도 포함하며, 점포별 출력은 판매점포 등록 기준입니다.</p>
-                    {bulkStore && !productsLoading && !productsError && !storeProducts.length && <p role="status">이 점포에 등록된 제품이 없습니다.</p>}
+                    {!productsLoading && !productsError && !bulkProducts.length && <p role="status">선택한 점포와 카테고리에 해당하는 제품이 없습니다.</p>}
                     {storesError && <p role="alert">{storesError}</p>}
                     {productsError && <p role="alert">{productsError} <button className="db-retry" onClick={loadProducts}>다시 시도</button></p>}
                   </div>
