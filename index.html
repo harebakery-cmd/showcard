@@ -498,6 +498,13 @@ function normalizeProductName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
 }
 
+const normalizeStoreName = name => {
+  const value = String(name || "").trim().replace(/점$/, "");
+  return value === "건양대병원" ? "건양대" : value;
+};
+const displayStoreName = name => name === "건양대" ? "건양대병원점" : name + "점";
+const DEFAULT_STORES = ["둔산", "갤러리아", "도안", "건양대", "유성"];
+
 function mergeLoadedProducts(list) {
   const byName = new Map();
   list.forEach(p => {
@@ -512,6 +519,7 @@ function mergeLoadedProducts(list) {
       ...current,
       category: current.category || p.category || "",
       allergens: Array.from(new Set([...(current.allergens || []), ...(p.allergens || [])])),
+      stores: Array.from(new Set([...(current.stores || []), ...(p.stores || [])])),
       origin: current.origin && current.origin.length ? current.origin : (p.origin || []),
       price: current.price || p.price || "",
       setPrice: current.setPrice || p.setPrice || "",
@@ -1922,6 +1930,11 @@ function App() {
   const [message, setMessage] = useState("");
   const [allergens, setAllergens] = useState([]);
   const [queue, setQueue] = useState([]);
+  const [bulkStore, setBulkStore] = useState("");
+  const [stores, setStores] = useState([]);
+  const [storesError, setStoresError] = useState(null);
+  const [bulkPrinting, setBulkPrinting] = useState(false);
+  const [bulkPrintCards, setBulkPrintCards] = useState(null);
   const [rightTab, setRightTab] = useState("preview");
   const [previewDark, setPreviewDark] = useState(false);
   const [dbOpen, setDbOpen] = useState(false);
@@ -2382,6 +2395,13 @@ function App() {
 
   useEffect(() => { loadProducts(); loadOrigins(); }, []);
 
+  useEffect(() => {
+    fetch(PRODUCT_DB_URL.replace("products.json", "stores.json"))
+      .then(r => { if (!r.ok) throw new Error("점포 정보를 불러오지 못했습니다."); return r.json(); })
+      .then(data => setStores(data == null ? DEFAULT_STORES : [...new Set(Object.values(data).filter(Boolean).map(s => normalizeStoreName(s.name)).filter(Boolean))]))
+      .catch(() => setStoresError("점포 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요."));
+  }, []);
+
   function loadProducts() {
     setProductsLoading(true);
     setProductsError(null);
@@ -2393,6 +2413,7 @@ function App() {
           .map(p => ({
             name: p["제품이름"],
             category: p["카테고리"] || "",
+            stores: Array.isArray(p["판매점포"]) ? p["판매점포"].map(normalizeStoreName).filter(Boolean) : [],
             allergens: ALLERGENS.filter(a => p[a] === "Yes"),
             origin: p["원산지"] || [],
             price: p["판매금액"] != null ? String(p["판매금액"]) : "",
@@ -2451,6 +2472,28 @@ function App() {
     setRightTab("queue");
   }
 
+  const storeProducts = bulkStore ? products.filter(p => (p.stores || []).includes(bulkStore)) : [];
+  async function printProducts(list) {
+    if (!list.length || productsLoading || productsError || bulkPrinting) return;
+    setBulkPrinting(true);
+    try {
+      const cards = list.map(p => normalizeSavedCard({
+        id: uid(), type: cardType, name: p.name, origin: originItemsToText(p.origin),
+        price: p.price, setPrice: p.setPrice, allergens: p.allergens,
+      }));
+      ReactDOM.flushSync(() => setBulkPrintCards(cards));
+      await document.fonts.ready;
+      await Promise.all(Array.from(document.querySelectorAll("#print-root img")).map(img => img.decode().catch(() => {})));
+      window.print();
+    } catch (error) {
+      console.error(error);
+      alert("인쇄 준비에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setBulkPrintCards(null);
+      setBulkPrinting(false);
+    }
+  }
+
   const showOriginField = cardType !== "no-origin";
 
   return (
@@ -2465,7 +2508,7 @@ function App() {
             </div>
           ) : (
             <div className="print-grid">
-              {queue.map(card => <PrintCard key={card.id} card={card} settings={settings} designs={designs} />)}
+              {(bulkPrintCards || queue).map(card => <PrintCard key={card.id} card={card} settings={settings} designs={designs} />)}
             </div>
           )}
         </div>,
@@ -2515,6 +2558,23 @@ function App() {
                 </section>
 
                 <section>
+                  <span className="label-eyebrow">제품 전체 출력</span>
+                  <div style={{display:"grid", gap:8, marginBottom:18}}>
+                    <button className="btn-add" disabled={productsLoading || !!productsError || !products.length || bulkPrinting} onClick={() => printProducts(products)}>
+                      {bulkPrinting ? "인쇄 준비 중…" : `전제품 출력하기 (${products.length}종)`}
+                    </button>
+                    <select aria-label="쇼카드 출력 점포" value={bulkStore} onChange={e => setBulkStore(e.target.value)} disabled={bulkPrinting || !!storesError} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
+                      <option value="">점포를 선택하세요</option>
+                      {stores.map(store => <option key={store} value={store}>{displayStoreName(store)}</option>)}
+                    </select>
+                    <button className="btn-add" disabled={!storeProducts.length || productsLoading || !!productsError || !!storesError || bulkPrinting} onClick={() => printProducts(storeProducts)}>
+                      {bulkStore ? `${displayStoreName(bulkStore)} 제품 전체 출력하기 (${storeProducts.length}종)` : "점포 제품 전체 출력하기"}
+                    </button>
+                    <p style={{fontSize:11,lineHeight:1.6,color:"#7D6B5A",margin:0}}>선택한 카드 종류로 제품마다 1장씩 출력합니다. 숨김 제품도 포함하며, 점포별 출력은 판매점포 등록 기준입니다.</p>
+                    {bulkStore && !productsLoading && !productsError && !storeProducts.length && <p role="status">이 점포에 등록된 제품이 없습니다.</p>}
+                    {storesError && <p role="alert">{storesError}</p>}
+                    {productsError && <p role="alert">{productsError} <button className="db-retry" onClick={loadProducts}>다시 시도</button></p>}
+                  </div>
                   <span className="label-eyebrow">신제품 DB 불러오기</span>
                   <div className="db-wrap">
                     <button className="db-toggle" onClick={() => setDbOpen(v => !v)}>
