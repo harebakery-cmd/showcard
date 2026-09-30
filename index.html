@@ -184,10 +184,18 @@
   .btn-save-card:not(:disabled):active{transform:scale(.97);}
 
   /* right main */
-  .righttabs{border-bottom:1px solid var(--border);background:var(--card);padding:0 24px;display:flex;flex-shrink:0;}
+  .righttabs{position:sticky;top:0;z-index:25;border-bottom:1px solid var(--border);background:var(--card);padding:0 24px;display:flex;justify-content:flex-end;flex-shrink:0;box-shadow:0 2px 8px rgba(28,16,7,.04);}
   .righttab-btn{display:flex;align-items:center;gap:6px;padding:12px 16px;font-size:12px;font-weight:700;
     background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted-foreground);transition:all .15s;}
   .righttab-btn.active{border-color:var(--primary);color:var(--primary);}
+  .type-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .type-section-head .label-eyebrow{margin:0;}
+  .db-refresh-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    border:1px solid var(--border);border-radius:50%;background:#fff;color:#5a4a3a;transition:all .15s;}
+  .db-refresh-btn:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:var(--secondary);}
+  .db-refresh-btn:disabled{opacity:.55;cursor:wait;}
+  .db-refresh-btn .is-spinning{animation:db-refresh-spin .8s linear infinite;}
+  @keyframes db-refresh-spin{to{transform:rotate(360deg);}}
   .preview-pane{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:18px;transition:background-color .2s;}
   .preview-pane.dark{background:#211d18;}
   .preview-top-row{display:flex;align-items:center;justify-content:center;gap:10px;position:relative;width:100%;max-width:520px;}
@@ -2286,6 +2294,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState(null);
+  const [databaseRefreshing, setDatabaseRefreshing] = useState(false);
 
   // originEntries keeps each saved origin phrase together with its Firebase
   // key (origins/{key}) so a single entry can be deleted with the ✕ button
@@ -2303,7 +2312,7 @@ function App() {
 
   function loadOrigins() {
     setOriginListLoading(true);
-    Promise.all([
+    return Promise.all([
       fetch(ORIGIN_DB_URL).then(r => r.json()),
       fetch(ORIGIN_HIDDEN_URL).then(r => r.json()).catch(() => ({}))
     ]).then(([data, hidden]) => {
@@ -2405,7 +2414,7 @@ function App() {
   function loadProducts() {
     setProductsLoading(true);
     setProductsError(null);
-    fetch(PRODUCT_DB_URL)
+    return fetch(PRODUCT_DB_URL)
       .then(r => { if (!r.ok) throw new Error("네트워크 오류 (" + r.status + ")"); return r.json(); })
       .then(data => {
         const list = mergeLoadedProducts(Object.values(data || {})
@@ -2425,6 +2434,16 @@ function App() {
       })
       .catch(err => setProductsError(err.message || "불러오기에 실패했습니다"))
       .finally(() => setProductsLoading(false));
+  }
+
+  async function refreshDatabase() {
+    if (databaseRefreshing) return;
+    setDatabaseRefreshing(true);
+    try {
+      await Promise.all([loadProducts(), loadOrigins()]);
+    } finally {
+      setDatabaseRefreshing(false);
+    }
   }
 
   const currentCard = { id: "current", type: cardType, name, description, origin, price, setPrice: bundlePrice, priceLabel, setPriceLabel: bundlePriceLabel, allergens, message, discountPercent: Number(discountPercent) || 0 };
@@ -2555,7 +2574,13 @@ function App() {
             <aside className="aside">
               <div className="aside-inner">
                 <section>
-                  <span className="label-eyebrow">카드 종류</span>
+                  <div className="type-section-head">
+                    <span className="label-eyebrow">카드 종류</span>
+                    <button type="button" className="db-refresh-btn" onClick={refreshDatabase}
+                      disabled={databaseRefreshing} aria-label="DB 새로고침" title="DB 새로고침: 제품과 원산지 목록을 다시 불러옵니다">
+                      <IconRefresh size={14} className={databaseRefreshing ? "is-spinning" : ""} />
+                    </button>
+                  </div>
                   <div className="type-grid">
                     {CARD_TYPE_LIST.map(({ id, label }) => (
                       <button key={id} className={"type-chip" + (cardType === id ? " active" : "")} onClick={() => setCardType(id)}>
@@ -2767,8 +2792,8 @@ function App() {
                   <button className="btn-save-card" disabled={!name.trim() || savingCard} onClick={saveCardToLibrary} title="저장된 카드 목록에 저장">
                     <IconBookmark size={13} /> {savingCard ? "저장 중..." : "카드로 저장"}
                   </button>
-                  <button className="btn-reset" title="초기화" onClick={resetForm}>
-                    <IconRefresh size={13} />
+                  <button className="btn-reset" title="입력 내용 리셋" aria-label="입력 내용 리셋" onClick={resetForm}>
+                    <IconRefresh size={13} /> 리셋
                   </button>
                 </div>
               </div>
