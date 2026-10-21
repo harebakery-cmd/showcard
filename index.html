@@ -872,16 +872,26 @@ function bulkOriginHeader(rank) { return `원산지 ${rank}순위`; }
 // Builds and downloads the .xlsx template staff should fill in and re-upload.
 function downloadBulkUploadTemplate() {
   const headers = [
-    "제품명", "낱개 금액", "세트 금액",
+    "제품명", "낱개 금액", "세트 금액", "가격 구성(자동)",
     ...Array.from({ length: BULK_UPLOAD_MAX_ORIGIN_RANKS }, (_, i) => bulkOriginHeader(i + 1)),
     "알레르기 유발물질",
   ];
   const sampleRows = [
-    ["크로와상", 3500, 10000, "프랑스산 버터", "국산 밀가루", "", "", "", "", "우유,밀"],
-    ["호밀빵", 4200, "", "호밀가루(미국산)", "", "", "", "", "", ""],
+    ["크로와상", 3500, 10000, "", "프랑스산 버터", "국산 밀가루", "", "", "", "", "우유,밀"],
+    ["호밀빵", 4200, "", "", "호밀가루(미국산)", "", "", "", "", "", ""],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
-  ws["!cols"] = headers.map((_, i) => ({ wch: i === 0 ? 18 : i <= 2 ? 10 : i < 3 + BULK_UPLOAD_MAX_ORIGIN_RANKS ? 20 : 28 }));
+  // This display column recalculates from the two amount columns in Excel.
+  // Import ignores it and remains compatible with older templates.
+  for (let row = 2; row <= 501; row++) {
+    ws[`D${row}`] = {
+      t: "str",
+      f: `IF(AND(B${row}>0,C${row}>0),"낱개 + 세트",IF(B${row}>0,"단품",IF(C${row}>0,"세트만","")))`,
+      v: row === 2 ? "낱개 + 세트" : row === 3 ? "단품" : "",
+    };
+  }
+  ws["!ref"] = "A1:K501";
+  ws["!cols"] = headers.map((_, i) => ({ wch: i === 0 ? 18 : i <= 2 ? 12 : i === 3 ? 18 : i < 4 + BULK_UPLOAD_MAX_ORIGIN_RANKS ? 20 : 28 }));
 
   // Reference sheet so staff can copy exact allergen spelling — matching
   // must be exact, since it maps 1:1 onto the fixed ALLERGENS key list.
@@ -952,6 +962,7 @@ async function parseBulkUploadFile(file) {
       name,
       price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null,
       setPrice: Number.isFinite(setPriceNum) && setPriceNum > 0 ? setPriceNum : null,
+      hasSetPriceColumn: setPriceIdx !== -1,
       originTexts,
       matchedAllergens,
       unknownAllergens,
@@ -989,7 +1000,9 @@ async function applyBulkUpload(parsedRows) {
 
     const update = { 제품이름: row.name, 원산지: originArr };
     if (row.price != null) update.판매금액 = row.price;
+    // Clearing the set amount in a template with that column removes an old set price.
     if (row.setPrice != null) update.세트금액 = row.setPrice;
+    else if (row.hasSetPriceColumn) update.세트금액 = null;
     ALLERGENS.forEach(a => { update[a] = row.matchedAllergens.includes(a) ? "Yes" : "No"; });
 
     const existingKey = nameToKey.get(row.name);
@@ -1236,9 +1249,10 @@ function formatOriginText(value) {
 function PriceBlock({ price, setPrice, priceLabel, setPriceLabel, discountPercent, priceColor, priceLabelColor, priceFamily, priceSize, priceLabelSize, priceLineHeight, priceAlign, px }) {
   const flexAlign = priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center";
   const rows = [
-    { key: "individual", label: priceLabel == null ? "낱개" : priceLabel, value: price },
-    { key: "set", label: setPriceLabel == null ? "세트" : setPriceLabel, value: setPrice },
+    { key: "individual", label: String(priceLabel || "낱개").trim(), value: price },
+    { key: "set", label: String(setPriceLabel || "세트").trim(), value: setPrice },
   ].filter(row => String(row.value || "").trim() !== "");
+  const showPriceLabels = rows.length > 1;
 
   if (rows.length > 0) {
     return (
@@ -1254,7 +1268,7 @@ function PriceBlock({ price, setPrice, priceLabel, setPriceLabel, discountPercen
           const rowPrice = rowHasDiscount ? Math.round(rowOriginal * (100 - discountPercent) / 100) : row.value;
           return (
             <div key={row.key} style={{ display: "flex", alignItems: "baseline", justifyContent: priceAlign === "left" ? "flex-start" : priceAlign === "right" ? "flex-end" : "center", gap: px(priceSize) * 0.2, width: "100%", whiteSpace: "nowrap" }}>
-              {row.label !== "" && <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 700, color: priceLabelColor, lineHeight: 1 }}>{row.label}</span>}
+              {showPriceLabels && <span style={{ fontFamily: priceFamily, fontSize: px(Math.max(Number(priceLabelSize) || 0, 6)), fontWeight: 700, color: priceLabelColor || "#8a7a6a", lineHeight: 1, flexShrink: 0 }}>{row.label}</span>}
               {rowHasDiscount && <span style={{ fontFamily: priceFamily, fontSize: px(priceLabelSize), fontWeight: 600, color: "#a89a8d", textDecoration: "line-through", textDecorationColor: "#D64545", lineHeight: 1 }}>{formatPriceText(rowOriginal)}</span>}
               <strong style={{ fontFamily: priceFamily, fontSize: px(priceSize), fontWeight: 900, color: priceColor, lineHeight: priceLineHeight }}>{formatPriceText(rowPrice) || "—"}</strong>
             </div>
@@ -1813,6 +1827,7 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
           <p className="bulk-upload-desc">
             틀을 내려받아 제품명 / 낱개 금액 / 세트 금액(선택) / 원산지 순위(최소 1개, 최대 6개) / 알레르기 유발물질을 채운 뒤 업로드하면,
             제품 목록("알레르기 자료에서 자동 불러오기")과 "저장된 표기" 원산지 목록에 한 번에 반영됩니다.
+            가격 구성(자동) 열은 단품·낱개 + 세트로 표시됩니다. 세트 금액을 비우면 기존 세트 금액도 지워집니다.
             이미 있는 제품명과 같으면 새로 만들지 않고 해당 제품 정보가 갱신됩니다.
           </p>
           <div className="bulk-upload-actions">
