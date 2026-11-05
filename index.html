@@ -113,6 +113,17 @@
   .db-empty{padding:20px;text-align:center;font-size:12px;color:var(--muted-foreground);}
   .db-status{padding:10px 14px;font-size:11px;color:var(--muted-foreground);display:flex;align-items:center;gap:6px;}
   .db-retry{font-size:11px;font-weight:700;color:var(--brand-orange);background:none;border:none;text-decoration:underline;padding:0;}
+  .bulk-accordion{border:1px solid var(--border);border-radius:4px;background:#fff;overflow:hidden;}
+  .bulk-accordion-toggle{width:100%;padding:10px 12px;border:0;background:var(--input-background);display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;font-size:12px;font-weight:700;color:var(--foreground);}
+  .bulk-accordion-toggle:hover{background:var(--secondary);}
+  .bulk-accordion-actions{display:flex;justify-content:flex-end;gap:10px;padding:8px 12px;border-top:1px solid var(--border);}
+  .bulk-accordion-actions button{border:0;background:none;color:#73543D;font-size:11px;text-decoration:underline;padding:2px;}
+  .bulk-product-list{max-height:220px;overflow-y:auto;border-top:1px solid var(--border);}
+  .bulk-product-option{display:flex;align-items:center;gap:9px;padding:9px 12px;font-size:12px;cursor:pointer;}
+  .bulk-product-option + .bulk-product-option{border-top:1px solid var(--secondary);}
+  .bulk-product-option:hover{background:var(--secondary);}
+  .bulk-product-option input{accent-color:var(--primary);width:15px;height:15px;flex-shrink:0;}
+  .bulk-product-empty{padding:12px;color:var(--muted-foreground);font-size:12px;}
 
   /* form fields */
   .field label{font-size:10px;font-weight:800;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
@@ -1957,6 +1968,8 @@ function App() {
   const [queue, setQueue] = useState([]);
   const [bulkStore, setBulkStore] = useState("");
   const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkProductSelection, setBulkProductSelection] = useState(null);
+  const [bulkProductsOpen, setBulkProductsOpen] = useState(false);
   const [stores, setStores] = useState([]);
   const [storesError, setStoresError] = useState(null);
   const [bulkPrinting, setBulkPrinting] = useState(false);
@@ -2514,7 +2527,17 @@ function App() {
     (!bulkStore || (p.stores || []).includes(bulkStore)) &&
     (!bulkCategory || productCategory(p) === bulkCategory)
   );
+  const selectedBulkProducts = bulkCategory && bulkProductSelection !== null
+    ? bulkProducts.filter(p => bulkProductSelection.includes(normalizeProductName(p.name).toLowerCase()))
+    : bulkProducts;
   const bulkScope = [bulkStore ? displayStoreName(bulkStore) : "전체 점포", bulkCategory || "전체 카테고리"].join(" · ");
+  function toggleBulkProduct(productName) {
+    const key = normalizeProductName(productName).toLowerCase();
+    const selected = bulkProductSelection === null
+      ? bulkProducts.map(p => normalizeProductName(p.name).toLowerCase())
+      : bulkProductSelection;
+    setBulkProductSelection(selected.includes(key) ? selected.filter(name => name !== key) : [...selected, key]);
+  }
   async function printProducts(list) {
     if (!list.length || productsLoading || productsError || bulkPrinting) return;
     setBulkPrinting(true);
@@ -2609,18 +2632,42 @@ function App() {
                   <span className="label-eyebrow">점포 · 카테고리별 출력</span>
                   <div style={{display:"grid", gap:8, marginBottom:18}}>
                     <label htmlFor="bulk-store" style={{fontSize:12}}>점포</label>
-                    <select id="bulk-store" aria-label="쇼카드 출력 점포" value={bulkStore} onChange={e => setBulkStore(e.target.value)} disabled={bulkPrinting || !!storesError} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
+                    <select id="bulk-store" aria-label="쇼카드 출력 점포" value={bulkStore} onChange={e => { setBulkStore(e.target.value); setBulkProductSelection(null); }} disabled={bulkPrinting || !!storesError} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
                       <option value="">전체 점포</option>
                       {stores.map(store => <option key={store} value={store}>{displayStoreName(store)}</option>)}
                     </select>
                     <label htmlFor="bulk-category" style={{fontSize:12}}>카테고리</label>
-                    <select id="bulk-category" aria-label="쇼카드 출력 카테고리" value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} disabled={bulkPrinting || productsLoading} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
+                    <select id="bulk-category" aria-label="쇼카드 출력 카테고리" value={bulkCategory} onChange={e => { setBulkCategory(e.target.value); setBulkProductSelection(null); setBulkProductsOpen(!!e.target.value); }} disabled={bulkPrinting || productsLoading} style={{width:"100%",padding:10,border:"1px solid #DED4C6",borderRadius:4,background:"#fff",font:"inherit"}}>
                       <option value="">전체 카테고리</option>
                       {bulkCategories.map(category => <option key={category} value={category}>{category}</option>)}
                     </select>
-                    <p role="status" style={{fontSize:12,lineHeight:1.6,margin:0}}>{bulkScope} · {bulkProducts.length}종</p>
-                    <button className="btn-add" disabled={!bulkProducts.length || productsLoading || !!productsError || (!!bulkStore && !!storesError) || bulkPrinting} onClick={() => printProducts(bulkProducts)}>
-                      {bulkPrinting ? "인쇄 준비 중…" : `${!bulkStore && !bulkCategory ? "전제품" : "선택 조건 제품"} 출력하기 (${bulkProducts.length}종)`}
+                    {bulkCategory && (
+                      <div className="bulk-accordion">
+                        <button type="button" className="bulk-accordion-toggle" aria-expanded={bulkProductsOpen} aria-controls="bulk-product-list" onClick={() => setBulkProductsOpen(open => !open)}>
+                          <span>제품 선택 · {selectedBulkProducts.length}/{bulkProducts.length}종</span>
+                          <IconChevronDown size={12} className={"chev" + (bulkProductsOpen ? " open" : "")} />
+                        </button>
+                        {bulkProductsOpen && (
+                          <div id="bulk-product-list">
+                            <div className="bulk-accordion-actions">
+                              <button type="button" onClick={() => setBulkProductSelection(null)} disabled={!bulkProducts.length || bulkPrinting}>전체 선택</button>
+                              <button type="button" onClick={() => setBulkProductSelection([])} disabled={!bulkProducts.length || bulkPrinting}>선택 해제</button>
+                            </div>
+                            <div className="bulk-product-list">
+                              {bulkProducts.length ? bulkProducts.map(p => (
+                                <label key={p.name} className="bulk-product-option">
+                                  <input type="checkbox" checked={bulkProductSelection === null || bulkProductSelection.includes(normalizeProductName(p.name).toLowerCase())} onChange={() => toggleBulkProduct(p.name)} disabled={bulkPrinting} />
+                                  <span>{p.name}</span>
+                                </label>
+                              )) : <div className="bulk-product-empty">해당하는 제품이 없습니다.</div>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p role="status" style={{fontSize:12,lineHeight:1.6,margin:0}}>{bulkScope} · 출력 대상 {selectedBulkProducts.length}종</p>
+                    <button className="btn-add" disabled={!selectedBulkProducts.length || productsLoading || !!productsError || (!!bulkStore && !!storesError) || bulkPrinting} onClick={() => printProducts(selectedBulkProducts)}>
+                      {bulkPrinting ? "인쇄 준비 중…" : `${!bulkStore && !bulkCategory ? "전제품" : "선택 제품"} 출력하기 (${selectedBulkProducts.length}종)`}
                     </button>
                     <p style={{fontSize:11,lineHeight:1.6,color:"#7D6B5A",margin:0}}>선택한 카드 종류로 제품마다 1장씩 출력합니다. 알레르기 관리 시스템에서 숨김 처리한 제품은 제외하며, 점포별 출력은 판매점포 등록 기준입니다.</p>
                     {!productsLoading && !productsError && !bulkProducts.length && <p role="status">선택한 점포와 카테고리에 해당하는 제품이 없습니다.</p>}
