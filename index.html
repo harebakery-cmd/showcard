@@ -395,7 +395,16 @@
   .design-hint{font-size:9px;color:var(--placeholder);margin-top:6px;line-height:1.4;}
 
   .position-section{border-top:1px dashed var(--border);padding-top:11px;}
-  .position-section-title{font-size:11px;font-weight:800;color:var(--foreground);margin:0 0 9px;}
+  .position-section-title{font-size:11px;font-weight:800;color:var(--foreground);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;}
+  .position-section-title::-webkit-details-marker{display:none;}
+  .position-section-title::before{content:"⌄";font-size:15px;line-height:1;color:var(--muted-foreground);transition:transform .15s;}
+  .position-section[open] .position-section-title::before{transform:rotate(180deg);}
+  .position-section[open] .position-section-title{margin-bottom:9px;}
+  .design-group-label{font-size:11px;font-weight:800;color:#73543D;background:#F5F0E8;border-radius:4px;padding:8px 10px;margin-top:6px;}
+  .design-group-label:first-child{margin-top:0;}
+  .season-preset-section{margin-top:16px;}
+  .preview-description-field{display:flex;flex-direction:column;gap:5px;font-size:10px;color:var(--muted-foreground);}
+  .preview-description-field textarea{width:100%;min-height:58px;padding:8px;border:1px solid var(--border);border-radius:4px;background:#FFFDF8;font:inherit;font-size:12px;resize:vertical;color:var(--foreground);}
   .position-section-title span{font-size:9px;font-weight:500;color:var(--muted-foreground);}
   .position-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
   .position-control{background:#FFFDF8;border:1px solid var(--border);border-radius:5px;padding:8px;}
@@ -554,7 +563,8 @@ const CARD_TYPE_LIST = [
   { id: "small",      label: "작은사이즈" },
   { id: "cookie",     label: "쿠키사이즈" },
   { id: "no-origin",  label: "원산지 없는버전" },
-  { id: "season",        label: "시즌 쇼카드", designFile: "season.png" },
+  { id: "season",        label: "시즌 표준 -1", designFile: "season.png" },
+  { id: "season-2",      label: "시즌 표준 -2", designFile: "season-2.png" },
   { id: "season-small",  label: "시즌 작은사이즈", designFile: "season-small.png" },
   { id: "season-cookie", label: "시즌 쿠키사이즈", designFile: "season-cookie.png" },
 ];
@@ -590,6 +600,7 @@ const POSITION_PRESETS = {
   cookie:     { description: { x: 50, y: 11 }, name: { x: 50, y: 32 }, origin: { x: 50, y: 66 }, price: { x: 50, y: 79 }, allergen: { x: 50, y: 92 } },
   "no-origin":{ description: { x: 50, y: 15 }, name: { x: 50, y: 34 }, origin: { x: 34, y: 64 }, price: { x: 79, y: 57 }, allergen: { x: 50, y: 90 } },
   season:          { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
+  "season-2":      { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
   "season-small":  { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
   "season-cookie": { description: { x: 50, y: 12 }, name: { x: 50, y: 27 }, origin: { x: 34, y: 60 }, price: { x: 79, y: 54 }, allergen: { x: 50, y: 88 } },
 };
@@ -619,6 +630,7 @@ const DEFAULT_SETTINGS = {
     cookie:     { width: 60, height: 60 },
     "no-origin":{ width: 90, height: 55 },
     season:          { width: 90, height: 70 },
+    "season-2":      { width: 90, height: 70 },
     "season-small":  { width: 85, height: 48 },
     "season-cookie": { width: 60, height: 60 },
   },
@@ -660,6 +672,7 @@ const SAMPLE_CARDS = {
   cookie:     { id: "s", type: "cookie",     name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["호두"],             message: "" },
   "no-origin":{ id: "s", type: "no-origin",  name: "제품명", description: "제품 설명 예시", origin: "",                    price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: [],                   message: "안내 메시지 표기란입니다" },
   season:          { id: "s", type: "season",          name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
+  "season-2":      { id: "s", type: "season-2",        name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
   "season-small":  { id: "s", type: "season-small",    name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
   "season-cookie": { id: "s", type: "season-cookie",   name: "제품명", description: "제품 설명 예시", origin: "원산지 표기란입니다", price: "0,0", setPrice: "0,0", priceLabel: "낱개", setPriceLabel: "세트", allergens: ["계란","우유","밀"], message: "" },
 };
@@ -1358,7 +1371,7 @@ function ShowCard({ card, settings, designs, scale = SCREEN_SCALE }) {
     <div style={{ width: w, height: h, position: "relative", background: "white", overflow: "hidden",
       fontFamily: "inherit", userSelect: "none", flexShrink: 0 }}>
       {custom ? (
-        <img src={custom} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
+        <img src={custom} alt="" onError={e => { if (card.type === "season-2" && !e.currentTarget.dataset.fallback) { e.currentTarget.dataset.fallback = "true"; e.currentTarget.src = `${GITHUB_ASSET_BASE_URL}/showcard/season.png?v=${SHOWCARD_ASSET_VERSION}`; } }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
       ) : (
         <>
           {isSeason && (
@@ -1387,7 +1400,7 @@ function PrintCard({ card, settings, designs }) {
     <div style={{ width: `${wMm}mm`, height: `${hMm}mm`, position: "relative", background: "white",
       fontFamily: "inherit", boxSizing: "border-box", pageBreakInside: "avoid", overflow: "hidden" }}>
       {custom ? (
-        <img src={custom} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
+        <img src={custom} alt="" onError={e => { if (card.type === "season-2" && !e.currentTarget.dataset.fallback) { e.currentTarget.dataset.fallback = "true"; e.currentTarget.src = `${GITHUB_ASSET_BASE_URL}/showcard/season.png?v=${SHOWCARD_ASSET_VERSION}`; } }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill" }} />
       ) : (
         <>
           {isSeason && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #FFF9F0, #FFF5E8, #FFF9F0)", pointerEvents: "none" }} />}
@@ -1441,12 +1454,12 @@ function OriginLabelMiniSheet({ item, settings, designs }) {
 
 /* ═══════════════════════ Manage tab ═══════════════════════ */
 
-function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDesigns }) {
+function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDesigns, previewDescription }) {
   const [busy, setBusy] = useState(false);
   const fileInputRef = useRef(null);
   const size = settings.sizes[type];
   const design = designs[type];
-  const sample = SAMPLE_CARDS[type];
+  const sample = { ...SAMPLE_CARDS[type], description: previewDescription };
 
   function updateSize(key, val) {
     setSettings(s => ({ ...s, sizes: { ...s.sizes, [type]: { ...s.sizes[type], [key]: val } } }));
@@ -1542,15 +1555,15 @@ function DesignAndSizeCard({ type, label, settings, setSettings, designs, setDes
         </div>
       </div>
 
-      <div className="position-section">
-        <p className="position-section-title">텍스트 위치 조정 (%) <span>— 입력창 클릭 후 키보드 화살표로도 이동 가능 · 각 항목은 서로 영향 없이 독립적으로 움직입니다</span></p>
+      <details className="position-section">
+        <summary className="position-section-title">텍스트 위치 조정 (%) <span>— 펼쳐서 항목별 위치를 조정합니다</span></summary>
         <div className="position-grid">
           {POSITION_FIELDS.map(({ key, label: fLabel }) => (
             <PositionControl key={key} label={fLabel} pos={getPos(settings, type, key)} defaultPos={POSITION_PRESETS[type][key]}
               onChange={(pos) => setSettings(s => ({ ...s, positions: { ...s.positions, [type]: { ...s.positions[type], [key]: pos } } }))} />
           ))}
         </div>
-      </div>
+      </details>
     </div>
   );
 }
@@ -1689,6 +1702,7 @@ function FontFieldRow({ label, fieldKey, settings, setSettings, styleMode, profi
 function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving, savedAt, error, loaded, reloadProducts, reloadOrigins }) {
   const [manageMode, setManageMode] = useState("basic");
   const [presetStatus, setPresetStatus] = useState("");
+  const [previewDescription, setPreviewDescription] = useState("제품 설명 예시");
   const profile = getStyleProfile(settings, manageMode);
   const visibleTypes = CARD_TYPE_LIST.filter(t => getStyleMode(t.id) === manageMode);
   const fieldConfigs = [
@@ -1796,6 +1810,28 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
     }
   }
 
+  function renderPresetCard() {
+    return (
+          <div className="preset-card">
+            <p className="preset-title">서식 리스트 저장 / 불러오기</p>
+            <p className="preset-desc">리스트 1·2는 글자 설정 저장 슬롯입니다. 디자인 1·2의 이미지와 크기는 위 카드에서 각각 관리합니다.</p>
+            <div className="preset-list">
+              {["list1", "list2"].map((slot, index) => {
+                const exists = !!(settings.stylePresets && settings.stylePresets[manageMode] && settings.stylePresets[manageMode][slot]);
+                return (
+                  <div className="preset-row" key={slot}>
+                    <span className="preset-row-name">리스트 {index + 1}{exists ? " ✓" : ""}</span>
+                    <button type="button" className="preset-btn primary" onClick={() => saveStylePreset(slot)}>현재값 저장</button>
+                    <button type="button" className="preset-btn" onClick={() => loadStylePreset(slot)}>불러오기</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="preset-state">{presetStatus}</div>
+          </div>
+    );
+  }
+
   return (
     <div className="manage-wrap">
       <div className="manage-mode-tabs" role="tablist" aria-label="쇼카드 관리 구분">
@@ -1886,10 +1922,17 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
           </div>
           <div className="design-grid">
             {visibleTypes.map(({ id, label }) => (
-              <DesignAndSizeCard key={id} type={id} label={label} settings={settings} setSettings={setSettings}
-                designs={designs} setDesigns={setDesigns} />
+              <React.Fragment key={id}>
+                {manageMode === "season" && (id === "season" || id === "season-2" || id === "season-small") && <div className="design-group-label">{id === "season" ? "디자인 1 · 시즌 표준 -1" : id === "season-2" ? "디자인 2 · 시즌 표준 -2" : "다른 시즌 크기"}</div>}
+                <DesignAndSizeCard type={id} label={label} settings={settings} setSettings={setSettings}
+                  designs={designs} setDesigns={setDesigns} previewDescription={previewDescription} />
+              </React.Fragment>
             ))}
           </div>
+          {manageMode === "season" && <div className="season-preset-section">
+            <div className="manage-section-head"><h2>시즌 쇼카드 글자 설정 리스트</h2></div>
+            {renderPresetCard()}
+          </div>}
         </section>
 
         <section className="manage-col-right">
@@ -1899,28 +1942,15 @@ function ManageTab({ settings, setSettings, designs, setDesigns, onSave, saving,
             <span className="sub">— 크기 · 줄간격 · 폰트 · 색상 · 정렬을 항목별로 저장합니다</span>
           </div>
 
-          <div className="preset-card">
-            <p className="preset-title">서식 리스트 저장 / 불러오기</p>
-            <p className="preset-desc">현재 다섯 항목의 글자 설정을 리스트 1 또는 2에 저장해 두고 한 번에 다시 적용할 수 있습니다.</p>
-            <div className="preset-list">
-              {["list1", "list2"].map((slot, index) => {
-                const exists = !!(settings.stylePresets && settings.stylePresets[manageMode] && settings.stylePresets[manageMode][slot]);
-                return (
-                  <div className="preset-row" key={slot}>
-                    <span className="preset-row-name">리스트 {index + 1}{exists ? " ✓" : ""}</span>
-                    <button type="button" className="preset-btn primary" onClick={() => saveStylePreset(slot)}>현재값 저장</button>
-                    <button type="button" className="preset-btn" onClick={() => loadStylePreset(slot)}>불러오기</button>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="preset-state">{presetStatus}</div>
-          </div>
+          {manageMode === "basic" && renderPresetCard()}
 
           <div className="settings-card">
             {fieldConfigs.map(field => (
               <div className="field-group" key={field.key}>
                 <p className="field-group-title">{field.label}</p>
+                {field.key === "description" && <label className="preview-description-field">보드 미리보기 문구 (화면 확인용)
+                  <textarea value={previewDescription} onChange={e => setPreviewDescription(e.target.value)} placeholder="제품 설명을 입력하면 모든 카드 종류별 보드에 표시됩니다." />
+                </label>}
                 <NumberInput label="크기" value={profile.fonts[field.sizeKey]} onChange={(v) => updateFont(field.sizeKey, v)}
                   min={field.min} max={field.max} step={0.5} unit="pt" />
                 {field.key === "price" && (
