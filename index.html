@@ -2350,6 +2350,22 @@ function App() {
   }
 
   const [products, setProducts] = useState([]);
+  const portalManagedItemsRef = useRef([]);
+  const portalItemsToProducts = items => items.map(name => ({name,category:"포털 관리 품목",hidden:false,stores:[],allergens:[],origin:[],price:"",setPrice:""}));
+  useEffect(() => {
+    const receivePortalConfig = event => {
+      if (event.source !== window.parent || event.origin !== location.origin) return;
+      const message = event.data;
+      if (!message || message.type !== "hare-workspace:module-config" || message.moduleId !== "showcard") return;
+      const items = Array.isArray(message.settings && message.settings.items)
+        ? [...new Set(message.settings.items.map(x => String(x || "").trim()).filter(Boolean))]
+        : [];
+      portalManagedItemsRef.current = items;
+      setProducts(current => mergeLoadedProducts([...current, ...portalItemsToProducts(items)]));
+    };
+    window.addEventListener("message", receivePortalConfig);
+    return () => window.removeEventListener("message", receivePortalConfig);
+  }, []);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState(null);
   const [databaseRefreshing, setDatabaseRefreshing] = useState(false);
@@ -2488,7 +2504,7 @@ function App() {
             setPrice: p["세트금액"] != null ? String(p["세트금액"]) : "",
           })))
           .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-        setProducts(list);
+        setProducts(mergeLoadedProducts([...list, ...portalItemsToProducts(portalManagedItemsRef.current)]));
       })
       .catch(err => setProductsError(err.message || "불러오기에 실패했습니다"))
       .finally(() => setProductsLoading(false));
